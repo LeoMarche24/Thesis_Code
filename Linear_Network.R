@@ -63,6 +63,38 @@ ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,],
 
 plot_lin_net(lines, df[, 1:2])
 
+#### Necessity for an ad hoc process in the linear network ####
+
+# If the weights are according to the stream network process, 
+# fulfilling only the stationarity condition, the covariance matrix is no longer valid.
+
+P <- PI_in
+distances <- initialize(dist, P)
+updated <- TRUE
+order <- 1
+while (updated)
+{
+  updated <- FALSE
+  print(order)
+  distances <- lapply(distances, function(p) update(p,dist, P))
+  order <- order + 1
+}
+
+ranges <- 1*10^seq(1, 6, length = 200)
+eig_min <- rep(0, length(ranges))
+B <- length(distances)
+
+for (r in 1:length(ranges))
+{
+  cov <- build_covariances(1, ranges[r], distances, fun = linear_covariance)
+  eig_min[r] <- eigen(cov)$values[B]
+}
+
+plot(ranges, eig_min, type = 'l')
+abline(h = 0)
+
+#### Distances object ####
+
 # Cretion of the distances object. For any pair of points it evaluates, for any possible
 # path, the distance of that path and the corresponding probability, according to the
 # matrix prob provided in the function.
@@ -93,6 +125,19 @@ while (updated)
   order <- order + 1
 }
 
+ranges <- 1*10^seq(1, 6, length = 200)
+eig_min <- rep(0, length(ranges))
+B <- length(distances)
+
+for (r in 1:length(ranges))
+{
+  cov <- build_covariances(1, ranges[r], distances, fun = linear_covariance)
+  eig_min[r] <- eigen(cov)$values[B]
+}
+
+plot(ranges, eig_min, type = 'l')
+abline(h = 0)
+
 # Create a bistochastic matrix and then normalize the column
 
 P <- build_bistochastic(PI_out, 1000, 2405)
@@ -117,6 +162,19 @@ while (updated)
   bistochastic <- lapply(bistochastic, function(p) update(p,dist, P))
   order <- order + 1
 }
+
+ranges <- 1*10^seq(1, 6, length = 200)
+eig_min <- rep(0, length(ranges))
+B <- length(bistochastic)
+
+for (r in 1:length(ranges))
+{
+  cov <- build_covariances(1, ranges[r], bistochastic, fun = linear_covariance)
+  eig_min[r] <- eigen(cov)$values[B]
+}
+
+plot(ranges, eig_min, type = 'l')
+abline(h = 0)
 
 ## Regularity of the distances
 

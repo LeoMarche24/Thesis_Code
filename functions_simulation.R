@@ -373,10 +373,10 @@ evaluate_variogram_penalization <- function(ma, paths, l, cutoff = NULL, return_
         dist <- mean(mat[, 1])
         interval <- findInterval(dist, lags)
         total <- sum(mat[, 2])
-        omega[[index]] <- rbind(omega[[index]], total)
-        np[index] <- np[index]+1
-        vars[[index]] <- rbind(vars[[index]], estimation/2)
-        dists[[index]] <- rbind(dists[[index]], dist)
+        omega[[interval]] <- rbind(omega[[interval]], total)
+        np[interval] <- np[interval]+1
+        vars[[interval]] <- rbind(vars[[interval]], estimation/2)
+        dists[[interval]] <- rbind(dists[[interval]], dist)
       }
       if (!is.null(paths[[j]]$lengths[[i]]))
       {
@@ -385,10 +385,10 @@ evaluate_variogram_penalization <- function(ma, paths, l, cutoff = NULL, return_
         dist <- mean(mat[, 1])
         interval <- findInterval(dist, lags)
         total <- sum(mat[, 2])
-        omega[[index]] <- rbind(omega[[index]], total)
-        np[index] <- np[index]+1
-        vars[[index]] <- rbind(vars[[index]], estimation/2)
-        dists[[index]] <- rbind(dists[[index]], dist)
+        omega[[interval]] <- rbind(omega[[interval]], total)
+        np[interval] <- np[interval]+1
+        vars[[interval]] <- rbind(vars[[interval]], estimation/2)
+        dists[[interval]] <- rbind(dists[[interval]], dist)
       }
     }
   }
@@ -471,10 +471,10 @@ evaluate_variogram_penalization_train <- function(ma, paths, train, l, cutoff = 
           dist <- mean(mat[, 1])
           interval <- findInterval(dist, lags)
           total <- sum(mat[, 2])
-          omega[[index]] <- rbind(omega[[index]], total)
-          np[index] <- np[index]+1
-          vars[[index]] <- rbind(vars[[index]], estimation/2)
-          dists[[index]] <- rbind(dists[[index]], dist)
+          omega[[interval]] <- rbind(omega[[interval]], total)
+          np[interval] <- np[interval]+1
+          vars[[interval]] <- rbind(vars[[interval]], estimation/2)
+          dists[[interval]] <- rbind(dists[[interval]], dist)
         }
         if (!is.null(paths[[j]]$lengths[[i]]))
         {
@@ -483,10 +483,10 @@ evaluate_variogram_penalization_train <- function(ma, paths, train, l, cutoff = 
           dist <- mean(mat[, 1])
           interval <- findInterval(dist, lags)
           total <- sum(mat[, 2])
-          omega[[index]] <- rbind(omega[[index]], total)
-          np[index] <- np[index]+1
-          vars[[index]] <- rbind(vars[[index]], estimation/2)
-          dists[[index]] <- rbind(dists[[index]], dist)
+          omega[[interval]] <- rbind(omega[[interval]], total)
+          np[interval] <- np[interval]+1
+          vars[[interval]] <- rbind(vars[[interval]], estimation/2)
+          dists[[interval]] <- rbind(dists[[interval]], dist)
         }
       }
     }
@@ -537,10 +537,10 @@ evaluate_variogram_unadjusted_train <- function(ma, train, paths, l, cutoff)
         dist <- mean(mat[, 1])
         interval <- findInterval(dist, lags)
         total <- sum(mat[, 2])
-        omega[[index]] <- rbind(omega[[index]], total)
-        np[index] <- np[index]+1
-        vars[[index]] <- rbind(vars[[index]], estimation/2)
-        dists[[index]] <- rbind(dists[[index]], dist)
+        omega[[interval]] <- rbind(omega[[interval]], total)
+        np[interval] <- np[interval]+1
+        vars[[interval]] <- rbind(vars[[interval]], estimation/2)
+        dists[[interval]] <- rbind(dists[[interval]], dist)
       }
       if (!is.null(paths[[j]]$lengths[[i]]))
       {
@@ -549,10 +549,10 @@ evaluate_variogram_unadjusted_train <- function(ma, train, paths, l, cutoff)
         dist <- mean(mat[, 1])
         interval <- findInterval(dist, lags)
         total <- sum(mat[, 2])
-        omega[[index]] <- rbind(omega[[index]], total)
-        np[index] <- np[index]+1
-        vars[[index]] <- rbind(vars[[index]], estimation/2)
-        dists[[index]] <- rbind(dists[[index]], dist)
+        omega[[interval]] <- rbind(omega[[interval]], total)
+        np[interval] <- np[interval]+1
+        vars[[interval]] <- rbind(vars[[interval]], estimation/2)
+        dists[[interval]] <- rbind(dists[[interval]], dist)
       }
     }
   }

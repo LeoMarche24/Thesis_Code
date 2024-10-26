@@ -311,7 +311,8 @@ build_bistochastic <- function(P,K,seed, control_bar = F)
       print(c(k, "th iteration is not fine."))
     
     P_fin <- P_fin + P_transition
-    pb$tick()
+    if(control_bar)
+      pb$tick()
   }
   
   P_fin <- P_fin/K
@@ -435,7 +436,7 @@ initialize <- function(dist, prob)
   for (i in 1:B)
   {
     temp <- vector("list", length = B)
-    distances[[i]] <- list(lengths = temp, update = NULL, min = matrix(max, B), Id = i)
+    distances[[i]] <- list(lengths = temp, update = NULL, Id = i)
   }
   
   for (i in 1:B)

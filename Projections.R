@@ -28,15 +28,46 @@ custom_colorscale <- list(
 
 ## Introductive analysis ##
 
-data <- read.csv('Data/total_august.csv')
-data_real <- read.csv('Data/august_LigurianSea.csv')
+data <- read.csv('Data/Projections_August_LigurianSea.csv')
+data_real <- read.csv('Data/RealData_August_LigurianSea.csv')
 
-df <- data[which(data$year==2006 & data$RCP == 'rcp45'), 1:5]
+color_limits <- c(25, 28.4)
 
-ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$value)) ,], 
-       aes(x=lon, y=lat, fill=value)) + 
+df <- data[which(data$year==2050 & data$RCP == 'rcp45'), 1:5]
+
+ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$value)), ], 
+       aes(x = lon, y = lat, fill = value)) + 
   geom_raster() + 
-  scale_fill_gradient(low = col2, high = col1)
+  scale_fill_gradient(low = col2, high = col1, 
+                      limits = color_limits, name = "Temperature") +
+  labs(fill = "Temperature") +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20) 
+  )
+
+df <- data[which(data$year==2099 & data$RCP == 'rcp45'), 1:5]
+
+ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$value)), ], 
+       aes(x = lon, y = lat, fill = value)) + 
+  geom_raster() + 
+  scale_fill_gradient(low = col2, high = col1, 
+                      limits = color_limits, name = "Temperature") +
+  labs(fill = "Temperature") +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20) 
+  )
 
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$value)) ,], 
        aes(x = lon, y = lat, fill=value)) +
@@ -45,7 +76,8 @@ ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$value)) ,],
                aes(x = lon, y = lat, xend = lon + east, yend = lat + nord),
                arrow = arrow(length = unit(0.2, "cm")), color = third, alpha=0.8) + 
   labs(x = "Longitude", y = "Latitude") +
-  scale_fill_gradient(low = col2, high = col1, name = "Temperature")
+  scale_fill_gradient(low = col2, high = col1, name = "Temperature") +
+  theme_minimal()
 
 inx <- which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$value))
 
@@ -59,6 +91,8 @@ g <- graph_from_adjacency_matrix(ifelse(is.na(dist), 0, 1), mode = "directed")
 has_cycles <- !is_acyclic(g)
 print("The built network has a cycle: ")
 print(has_cycles)
+
+plot_lin_net_soft(lines, df[, 1:2])
 
 df_real <- data_real[which(data_real$year==2006), 1:5]
 
@@ -122,11 +156,15 @@ for (y in years)
 
 years <- unique(data_real$years)
 len <- length(years)
-means <- rep(0, len)
+res_total <- NULL
 sill <- rep(0, len)
 range <- rep(0, len)
 
 variograms_45_bistochastic <- NULL
+distances_45_bistochastic <- NULL
+variograms_45_eucl <- NULL
+dist_variogram_45_eucl <- NULL
+variograms_45_bistochastic_unwe <- vector('list', length = len)
 
 for(y in 1:len)
 {
@@ -163,7 +201,7 @@ for(y in 1:len)
     inx2 <- which(!is.na(df$value[nearest]))
     
     res <- df_real$temperature[inx2] - df$value[nearest][inx2]
-    means[y] <- mean(res)
+    res_total <- rbind(res_total, res)
     dist <- dist[inx2, inx2]
     PI_in <- PI_in[inx2, inx2]
     PI_out <- PI_out[inx2, inx2]
@@ -189,33 +227,51 @@ for(y in 1:len)
       bistochastic <- lapply(bistochastic, function(p) update(p,dist, P))
     }
     
-    variogram <- evaluate_variogram_penalization(res, bistochastic, l = 15, 
-                                                 lambda = 0.2, return_fuv = T)
+    variogram <- evaluate_variogram_penalization_best_lambda(res, bistochastic, l = 15, 
+                                                 return_fuv = T)
     fuv <- variogram[[1]]
     variogram <- variogram[[2]]
     variograms_45_bistochastic <- rbind(variograms_45_bistochastic, 
              c(variogram$squared_diff, rep(fuv, 15-length(variogram$squared_diff))))
+    distances_45_bistochastic <- rbind(distances_45_bistochastic,
+                c(variogram$dist, rep(NA, 15-length(variogram$dist))))
     
     initial_params <- c(1, 3e5)
     params <- fit_variogram(variogram, spherical_kernel, initial_params)
     sill[y] <- params[1]
     range[y] <- params[2]
+    
+    variogram <- evaluate_variogram_unadjusted(res, bistochastic, l = 15, 
+                                                 4e5)
+    variograms_45_bistochastic_unwe[[y]] <- variogram
+    
+    data_eucl <- df_real[inx2, 1:2]
+    data_eucl$res <- NA
+    coordinates(data_eucl) <- c('lon', 'lat')
+    data_eucl$res <- res
+    temp <- variogram(res ~ 1, data_eucl)
+    variograms_45_eucl <- rbind(variograms_45_eucl, 
+                           temp$gamma)
+    dist_variogram_45_eucl <- rbind(dist_variogram_45_eucl,
+                                    temp$dist)
   }
 }
 
-inx <- (1:len)[-c(7,11)]
-plot(years[inx], means[inx], pch = 16, col = third)
+inx <- (1:len)[-c(7,11,14)]
+plot(years[inx], rowMeans(res_total)[inx], pch = 16, col = third)
 plot(years[inx], sill[inx], pch = 16, col = third)
 plot(years[inx], range[inx], pch = 16, col = third)
 
-mean_variogram_45_bistochastic <- data.frame(dist = variogram$dist, 
-                             squared_diff = colMeans(variograms_45_bistochastic)[-15], 
-                             np = variogram$np)
+apply(res_total, MARGIN = 1, function(x) shapiro.test(x)$p<0.05)
+
+mean_variogram_45_bistochastic <- data.frame(dist = round(colMeans(distances_45_bistochastic, na.rm = T)), 
+                             squared_diff = colMeans(variograms_45_bistochastic), 
+                             np = 1)
 
 variograms_45_bistochastic <- melt(variograms_45_bistochastic)
 colnames(variograms_45_bistochastic) <- c("Row", "Column", "Value")
 variograms_45_bistochastic$Distance <- 
-  round(variogram$dist[variograms_45_bistochastic$Column])
+  round(colMeans(distances_45_bistochastic, na.rm = T)[variograms_45_bistochastic$Column])
 
 ggplot(variograms_45_bistochastic, aes(x = factor(Distance), y = Value, group = Row)) + 
   geom_line(color = col2) +  # Set color for the lines
@@ -223,9 +279,38 @@ ggplot(variograms_45_bistochastic, aes(x = factor(Distance), y = Value, group = 
   theme_minimal()
 
 ggplot(variograms_45_bistochastic, aes(x = factor(Distance), y = Value)) +
+  geom_boxplot(fill = third) +  # Boxplot for variability across distances
+  geom_line(data = mean_variogram_45_bistochastic,
+            aes(x = factor(dist), y = squared_diff, group = 1), col = fourth,
+            linewidth = 2) +  # Mean trend line overlay
+  labs(x = "Distance (meters)", y = "Values") +
+  ylim(c(0, 2)) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20)
+  )
+plot(0,0, xlim = range(mean_variogram_45_bistochastic$dist), 
+     ylim = c(0, 2 * range(mean_variogram_45_bistochastic$squared_diff)[2]))
+lapply(variograms_45_bistochastic_unwe, FUN = function(x) lines(x$dist, x$squared_diff))
+
+mean_variogram_45_eucl <- data.frame(dist = colMeans(dist_variogram_45_eucl), 
+                                             squared_diff = colMeans(variograms_45_eucl))
+
+variograms_45_eucl <- melt(variograms_45_eucl)
+colnames(variograms_45_eucl) <- c("Row", "Column", "Value")
+variograms_45_eucl$Distance <- 
+  colMeans(dist_variogram_45_eucl)[variograms_45_eucl$Column]
+
+ggplot(variograms_45_eucl, aes(x = factor(Distance), y = Value, group = Row)) + 
+  geom_line(color = col2) +  # Set color for the lines
+  labs(x = "Distance", y = "Values") +
+  theme_minimal()
+
+ggplot(variograms_45_eucl, aes(x = factor(Distance), y = Value)) +
   geom_boxplot(fill = third) +
-  geom_line(data = mean_variogram_45_bistochastic, 
-            aes(x = factor(round(dist)), y = squared_diff, group = 1), col = fourth, 
+  geom_line(data = mean_variogram_45_eucl, 
+            aes(x = factor(dist), y = squared_diff, group = 1), col = fourth, 
             linewidth = 2) +
   labs(x = "Distance", y = "Values") +
   theme_minimal()
@@ -300,8 +385,8 @@ for(y in 1:len)
       distances <- lapply(distances, function(p) update(p,dist, P))
     }
     
-    variogram <- evaluate_variogram_penalization(res, 
-              distances, l = 15, lambda = 0.2, return_fuv = T)
+    variogram <- evaluate_variogram_penalization_best_lambda(res, 
+              distances, l = 15, return_fuv = T)
     fuv <- variogram[[1]]
     variogram <- variogram[[2]]
     variograms_45_newmatrix <- rbind(variograms_45_newmatrix, 
@@ -320,7 +405,7 @@ plot(years[inx], sill[inx], pch = 16, col = third)
 plot(years[inx], range[inx], pch = 16, col = third)
 
 mean_variogram_45_newmatrix <- data.frame(dist = variogram$dist, 
-                             squared_diff = colMeans(variograms_45_newmatrix)[-15], 
+                             squared_diff = colMeans(variograms_45_newmatrix)[-(14:15)], 
                              np = variogram$np)
 
 variograms_45_newmatrix <- melt(variograms_45_newmatrix)
@@ -358,11 +443,15 @@ range45 <- res[2]
 
 years <- unique(data_real$years)
 len <- length(years)
-means <- rep(0, len)
+res_total <- NULL
 sill <- rep(0, len)
 range <- rep(0, len)
 
 variograms_85_bistochastic <- NULL
+distances_85_bistochastic <- NULL
+variograms_85_eucl <- NULL
+dist_variogram_85_eucl <- NULL
+variograms_85_bistochastic_unwe <- vector('list', length = len)
 
 for(y in 1:len)
 {
@@ -399,7 +488,7 @@ for(y in 1:len)
     inx2 <- which(!is.na(df$value[nearest]))
     
     res <- df_real$temperature[inx2] - df$value[nearest][inx2]
-    means[y] <- mean(res)
+    res_total <- rbind(res_total, res)
     dist <- dist[inx2, inx2]
     PI_in <- PI_in[inx2, inx2]
     PI_out <- PI_out[inx2, inx2]
@@ -425,33 +514,51 @@ for(y in 1:len)
       bistochastic <- lapply(bistochastic, function(p) update(p,dist, P))
     }
     
-    variogram <- evaluate_variogram_penalization(res, 
-                        bistochastic, l = 15, lambda = 0.2, return_fuv = T)
+    variogram <- evaluate_variogram_penalization_best_lambda(res, bistochastic, l = 15, 
+                                                             return_fuv = T)
     fuv <- variogram[[1]]
     variogram <- variogram[[2]]
     variograms_85_bistochastic <- rbind(variograms_85_bistochastic, 
-                     c(variogram$squared_diff, rep(fuv, 15-length(variogram$squared_diff))))
+                                        c(variogram$squared_diff, rep(fuv, 15-length(variogram$squared_diff))))
+    distances_85_bistochastic <- rbind(distances_85_bistochastic,
+                                       c(variogram$dist, rep(NA, 15-length(variogram$dist))))
     
     initial_params <- c(1, 3e5)
     params <- fit_variogram(variogram, spherical_kernel, initial_params)
     sill[y] <- params[1]
     range[y] <- params[2]
+    
+    variogram <- evaluate_variogram_unadjusted(res, bistochastic, l = 15, 
+                                               4e5)
+    variograms_85_bistochastic_unwe[[y]] <- variogram
+    
+    data_eucl <- df_real[inx2, 1:2]
+    data_eucl$res <- NA
+    coordinates(data_eucl) <- c('lon', 'lat')
+    data_eucl$res <- res
+    temp <- variogram(res ~ 1, data_eucl)
+    variograms_85_eucl <- rbind(variograms_85_eucl, 
+                                temp$gamma)
+    dist_variogram_85_eucl <- rbind(dist_variogram_85_eucl,
+                                    temp$dist)
   }
 }
 
-inx <- (1:len)[-c(7,11)]
-plot(years[inx], means[inx], pch = 16, col = third)
+inx <- (1:len)[-c(7,11,14)]
+plot(years[inx], rowMeans(res_total)[inx], pch = 16, col = third)
 plot(years[inx], sill[inx], pch = 16, col = third)
 plot(years[inx], range[inx], pch = 16, col = third)
 
-mean_variogram_85_bistochastic <- data.frame(dist = variogram$dist, 
-             squared_diff = colMeans(variograms_85_bistochastic)[-15], 
-                                             np = variogram$np)
+apply(res_total, MARGIN = 1, function(x) shapiro.test(x)$p<0.05)
+
+mean_variogram_85_bistochastic <- data.frame(dist = round(colMeans(distances_85_bistochastic, na.rm = T)), 
+                                             squared_diff = colMeans(variograms_85_bistochastic), 
+                                             np = 1)
 
 variograms_85_bistochastic <- melt(variograms_85_bistochastic)
 colnames(variograms_85_bistochastic) <- c("Row", "Column", "Value")
 variograms_85_bistochastic$Distance <- 
-  round(variogram$dist[variograms_85_bistochastic$Column])
+  round(colMeans(distances_85_bistochastic, na.rm = T)[variograms_85_bistochastic$Column])
 
 ggplot(variograms_85_bistochastic, aes(x = factor(Distance), y = Value, group = Row)) + 
   geom_line(color = col2) +  # Set color for the lines
@@ -459,9 +566,38 @@ ggplot(variograms_85_bistochastic, aes(x = factor(Distance), y = Value, group = 
   theme_minimal()
 
 ggplot(variograms_85_bistochastic, aes(x = factor(Distance), y = Value)) +
+  geom_boxplot(fill = third) +  # Boxplot for variability across distances
+  geom_line(data = mean_variogram_85_bistochastic,
+            aes(x = factor(dist), y = squared_diff, group = 1), col = fourth,
+            linewidth = 2) +  # Mean trend line overlay
+  labs(x = "Distance (meters)", y = "Values") +
+  ylim(c(0, 2)) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20)
+  )
+plot(0,0, xlim = range(mean_variogram_85_bistochastic$dist), 
+     ylim = c(0, 2 * range(mean_variogram_85_bistochastic$squared_diff)[2]))
+lapply(variograms_85_bistochastic_unwe, FUN = function(x) lines(x$dist, x$squared_diff))
+
+mean_variogram_85_eucl <- data.frame(dist = colMeans(dist_variogram_85_eucl), 
+                                     squared_diff = colMeans(variograms_85_eucl))
+
+variograms_85_eucl <- melt(variograms_85_eucl)
+colnames(variograms_85_eucl) <- c("Row", "Column", "Value")
+variograms_85_eucl$Distance <- 
+  colMeans(dist_variogram_85_eucl)[variograms_85_eucl$Column]
+
+ggplot(variograms_85_eucl, aes(x = factor(Distance), y = Value, group = Row)) + 
+  geom_line(color = col2) +  # Set color for the lines
+  labs(x = "Distance", y = "Values") +
+  theme_minimal()
+
+ggplot(variograms_85_eucl, aes(x = factor(Distance), y = Value)) +
   geom_boxplot(fill = third) +
-  geom_line(data = mean_variogram_85_bistochastic, 
-            aes(x = factor(round(dist)), y = squared_diff, group = 1), col = fourth, 
+  geom_line(data = mean_variogram_85_eucl, 
+            aes(x = factor(dist), y = squared_diff, group = 1), col = fourth, 
             linewidth = 2) +
   labs(x = "Distance", y = "Values") +
   theme_minimal()
@@ -536,8 +672,8 @@ for(y in 1:len)
       distances <- lapply(distances, function(p) update(p,dist, P))
     }
     
-    variogram <- evaluate_variogram_penalization(res, 
-                              distances, l = 15, lambda = 0.2, return_fuv = T)
+    variogram <- evaluate_variogram_penalization_best_lambda(res, 
+                              distances, l = 15, return_fuv = T)
     fuv <- variogram[[1]]
     variogram <- variogram[[2]]
     variograms_85_newmatrix <- rbind(variograms_85_newmatrix, 
@@ -556,7 +692,7 @@ plot(years[inx], sill[inx], pch = 16, col = third)
 plot(years[inx], range[inx], pch = 16, col = third)
 
 mean_variogram_85_newmatrix <- data.frame(dist = variogram$dist, 
-          squared_diff = colMeans(variograms_85_newmatrix)[-15], np = variogram$np)
+          squared_diff = colMeans(variograms_85_newmatrix)[-(14:15)], np = variogram$np)
 
 variograms_85_newmatrix <- melt(variograms_85_newmatrix)
 colnames(variograms_85_newmatrix) <- c("Row", "Column", "Value")
@@ -922,8 +1058,26 @@ plot_ly() %>%
   layout(scene = list(xaxis = list(title = 'Longitude'),
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),
-                      camera = list(eye = list(x=-2,y=-2,z=1))),
-          title = "Temperature - North Tyrrhenian - year 2050 - RCP 4.5")
+                      camera = list(eye = list(x=-2,y=-2,z=1)))
+         ,title = "Temperature - North Tyrrhenian - year 2050 - RCP 4.5"
+  )
+
+df$Probability <- NA
+df$Probability[inx] <- apply(simulation, MARGIN = 2, function(x) sum(x>27)/length(x))
+ggplot(df[inx ,], 
+       aes(x=lon, y=lat, fill=Probability)) + 
+  geom_raster() + 
+  xlab("Longitude")+
+  ylab("Latitude")+
+  scale_fill_gradient(low = col2, high = col1) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20),
+    strip.text = element_text(size = 20)
+  )
 
 #### RCP 8.5 ####
 
@@ -1069,8 +1223,26 @@ plot_ly() %>%
   layout(scene = list(xaxis = list(title = 'Longitude'),
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),
-                      camera = list(eye = list(x=-2,y=-2,z=1))),
-         title = "Temperature - North Tyrrhenian - year 2050 - RCP 8.5")
+                      camera = list(eye = list(x=-2,y=-2,z=1)))
+         ,title = "Temperature - North Tyrrhenian - year 2050 - RCP 8.5"
+         )
+
+df$Probability <- NA
+df$Probability[inx] <- apply(simulation, MARGIN = 2, function(x) sum(x>27)/length(x))
+ggplot(df[inx ,], 
+       aes(x=lon, y=lat, fill=Probability)) + 
+  geom_raster() + 
+  xlab("Longitude")+
+  ylab("Latitude")+
+  scale_fill_gradient(low = col2, high = col1) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20),
+    strip.text = element_text(size = 20)
+  )
 
 #### Year 2099 ####
 
@@ -1217,8 +1389,26 @@ plot_ly() %>%
   layout(scene = list(xaxis = list(title = 'Longitude'),
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),
-                        camera = list(eye = list(x=-2,y=-2,z=1))),
-    title = "Temperature - North Tyrrhenian - year 2099 - RCP 4.5")
+                        camera = list(eye = list(x=-2,y=-2,z=1)))
+         ,title = "Temperature - North Tyrrhenian - year 2099 - RCP 4.5"
+         )
+
+df$Probability <- NA
+df$Probability[inx] <- apply(simulation, MARGIN = 2, function(x) sum(x>27)/length(x))
+ggplot(df[inx ,], 
+       aes(x=lon, y=lat, fill=Probability)) + 
+  geom_raster() + 
+  xlab("Longitude")+
+  ylab("Latitude")+
+  scale_fill_gradient(low = col2, high = col1)+
+  theme_minimal() + 
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20),
+    strip.text = element_text(size = 20)
+  )
 
 #### RCP 8.5 ####
 
@@ -1363,6 +1553,24 @@ plot_ly() %>%
   layout(scene = list(xaxis = list(title = 'Longitude'),
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),  
-         camera = list(eye = list(x=-2,y=-2,z=1))),
-         title = "Temperature - North Tyrrhenian - year 2099 - RCP 8.5")
+         camera = list(eye = list(x=-2,y=-2,z=1)))
+         ,title = "Temperature - North Tyrrhenian - year 2099 - RCP 4.5"
+  )
+
+df$Probability <- NA
+df$Probability[inx] <- apply(simulation, MARGIN = 2, function(x) sum(x>27)/length(x))
+ggplot(df[inx ,], 
+       aes(x=lon, y=lat, fill=Probability)) + 
+  geom_raster() + 
+  xlab("Longitude")+
+  ylab("Latitude")+
+  scale_fill_gradient(low = col2, high = col1) +
+  theme_minimal() + 
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20),
+    strip.text = element_text(size = 20)
+  )
 

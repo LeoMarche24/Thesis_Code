@@ -282,7 +282,7 @@ plot_lin_net <- function(lines, coord_sub)
 {
   lin_net <- SpatialLines(LinesList = lines)
   lines_coords <- NULL
-  k <- 1
+  coord_points <- NULL
   for (i in 1:length(lin_net@lines))
   {
     for (j in 1:length(lin_net@lines[[i]]@Lines))
@@ -291,6 +291,9 @@ plot_lin_net <- function(lines, coord_sub)
       if (length(new_cord) == 4)
       {
         lines_coords <- rbind(lines_coords, new_cord)
+        pair1 <- c(new_cord[1],new_cord[3])
+        pair2 <- c(new_cord[2],new_cord[4])
+        coord_points <- unique(rbind(coord_points, rbind(pair1, pair2)))
       }
       else
       {
@@ -313,23 +316,29 @@ plot_lin_net <- function(lines, coord_sub)
   # Plot using ggplot2
   ggplot() +
     geom_sf(data = st_as_sf(lin_net), color = grey, linewidth = 2) +
-    geom_point(data=data.frame(x=coord_sub[, 1], y=coord_sub[, 2]), aes(x=x, y=y), col='black') + 
+    geom_point(data=data.frame(x=coord_sub[, 1], y=coord_sub[, 2]), 
+               aes(x=x, y=y), col=grey, size = 2) +
+    geom_point(data=data.frame(x=coord_points[, 1], y=coord_points[, 2]), 
+               aes(x=x, y=y), col='black', size = 2) +
     geom_segment(
       data = arrow_data,
       aes(x = x0, y = y0, xend = x1, yend = y1),
-      arrow = arrow(length = unit(0.05, "inches"), type = "closed"),
-      color = col2, linewidth = .1
+      arrow = arrow(length = unit(0.15, "inches"), type = "closed"),
+      color = col2, linewidth = 1
     ) +
     labs(x = "Longitude", y = "Latitude") +
     theme_minimal() +
-    labs(title = "Linear network")
+    theme(
+      axis.title = element_text(size = 18),
+      axis.text = element_text(size = 18) 
+    )
 }
 
 plot_one_point <- function(coord_sub, data)
 {
   x1 <- (data$lon[1] + data$lon[2])/2
   y1 <- (data$lat[1] + data$lat[2])/2
-  x2 <- (data$lon[1] + data$lon[3])/2
+  x2 <- (data$lon[1] + data$lon[3])/1.99
   y2 <- (data$lat[1] + data$lat[3])/2
   arrow_data <- data.frame(
     x0 = rep(data$lon[1], 2),
@@ -364,19 +373,74 @@ plot_one_point <- function(coord_sub, data)
     geom_segment(
       data = arrow_data,
       aes(x = x0, y = y0, xend = x1, yend = y1),
-      arrow = arrow(length = unit(0.05, "inches"), type = "closed"),
-      color = col2, linewidth = .5) +
+      arrow = arrow(length = unit(0.2, "inches"), type = "closed"),
+      color = col2, linewidth = 1) +
     geom_segment(
       data = data[1 ,],
-      aes(x = lon, y = lat, xend = lon + east*5, yend = lat + nord*5),
+      aes(x = lon, y = lat, xend = lon + east*2, yend = lat + nord*2),
       arrow = arrow(length = unit(.3, "inches"), type = "closed"),
       color = col1, linewidth = 1) +
     labs(x = "Longitude", y = "Latitude") +
     theme_minimal() +
-    labs(title = "Linear network")
+    theme(
+      axis.text = element_text(size = 20), 
+      axis.title = element_text(size = 20)
+    )
 }
 
-##########################################
+plot_lin_net_soft <- function(lines, coord_sub, coord_highlight)
+{
+  lin_net <- SpatialLines(LinesList = lines)
+  lines_coords <- NULL
+  for (i in 1:length(lin_net@lines))
+  {
+    for (j in 1:length(lin_net@lines[[i]]@Lines))
+    {
+      new_cord <- as.vector(lin_net@lines[[i]]@Lines[[j]]@coords)
+      if (length(new_cord) == 4)
+      {
+        lines_coords <- rbind(lines_coords, new_cord)
+      }
+      else
+      {
+        print(i,j)
+        errorCondition("Problem")
+      }
+    }
+  }
+  lines_coords <- data.frame(lines_coords)
+  names(lines_coords) <- c("x0", "x1", "y0", "y1")
+  midpoints_x <- (lines_coords[, "x0"] + lines_coords[, "x1"]) / 2
+  midpoints_y <- (lines_coords[, "y0"] + lines_coords[, "y1"]) / 2
+  arrow_data <- data.frame(
+    x0 = lines_coords$x0,
+    y0 = lines_coords$y0,
+    x1 = midpoints_x,
+    y1 = midpoints_y
+  )
+  
+  # Plot using ggplot2
+  ggplot() +
+    geom_sf(data = st_as_sf(lin_net), color = grey, linewidth = 2) +
+    geom_point(data=data.frame(x=coord_sub[, 1], y=coord_sub[, 2]), 
+               aes(x=x, y=y), col=grey, size = 2) +
+    geom_point(data=data.frame(x=coord_highlight[, 1], y=coord_highlight[, 2]), 
+               aes(x=x, y=y), col='black', size = 2) +
+    geom_segment(
+      data = arrow_data,
+      aes(x = x0, y = y0, xend = x1, yend = y1),
+      arrow = arrow(length = unit(0.05, "inches"), type = "closed"),
+      color = col2, linewidth = .7
+    ) +
+    labs(x = "Longitude", y = "Latitude") +
+    theme_minimal() +
+    theme(
+      axis.title = element_text(size = 18),                 # Enlarge x-axis label
+      axis.text = element_text(size = 18)                  # Enlarge y-axis label
+    )
+}
+
+\##########################################
 #### CREATION OF THE DISTANCES OBJECT ####
 ##########################################
 

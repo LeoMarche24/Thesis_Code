@@ -320,7 +320,7 @@ evaluate_variogram_unadjusted <- function(ma, paths, l, cutoff)
                             squared_diff = variogram, 
                             np = weights)
   }
-  variogram <- rbind(c(0, 0, max(variogram$np)), variogram)
+  # variogram <- rbind(c(0, 0, max(variogram$np)), variogram)
   return(variogram)
 }
 
@@ -409,6 +409,122 @@ evaluate_variogram_penalization <- function(ma, paths, l, cutoff = NULL, return_
                             np = weights)
   }
   variogram <- rbind(c(0, 0, max(variogram$np)), variogram)
+  if(return_fuv)
+  {
+    return(list(fuv, variogram))
+  }
+  else
+    return(variogram)
+}
+
+evaluate_variogram_penalization_best_lambda <- function(ma, paths, l, 
+                                                        cutoff = NULL, return_fuv = F)
+{
+  B <- length(paths)
+  if (B > 50)
+  {
+    set.seed(1)
+    inx <- sample(1:B, 50)
+  }
+  else
+  {
+    inx <- 1:B
+  }
+  D <- length(inx)
+  fuv <- NULL
+  maxs <- 0
+  for (i in 1:(D-1))
+  {
+    for (j in (i+1):D)
+    {
+      if (is.null(paths[[i]]$lengths[[j]]) & is.null(paths[[j]]$lengths[[i]]))
+      {
+        fuv <- c(fuv, (ma[i] - ma[j])^2)
+      }
+      else
+      {
+        if(is.null(paths[[i]]$lengths[[j]]))
+          maxs <- max(maxs,max(paths[[j]]$lengths[[i]][, 1]))
+        if(is.null(paths[[j]]$lengths[[i]]))
+          maxs <- max(maxs,max(paths[[i]]$lengths[[j]][, 1]))
+      }
+    }
+  }
+  fuv <- mean(fuv) / 2
+  lags <- seq(0, maxs, length = l)
+  vars <- vector("list", l)
+  omega <- vector("list", l)
+  dists <- vector("list", l)
+  np <- rep(0, l)
+  for (i in 1:(B-1))
+  {
+    for (j in (i+1):B)
+    {
+      if (!is.null(paths[[i]]$lengths[[j]]))
+      {
+        mat <- paths[[i]]$lengths[[j]]
+        estimation <- (ma[i] - ma[j]) ^ 2
+        dist <- mean(mat[, 1])
+        interval <- findInterval(dist, lags)
+        total <- sum(mat[, 2])
+        omega[[interval]] <- rbind(omega[[interval]], total)
+        np[interval] <- np[interval]+1
+        vars[[interval]] <- rbind(vars[[interval]], estimation/2)
+        dists[[interval]] <- rbind(dists[[interval]], dist)
+      }
+      if (!is.null(paths[[j]]$lengths[[i]]))
+      {
+        mat <- paths[[j]]$lengths[[i]]
+        estimation <- (ma[i] - ma[j]) ^ 2
+        dist <- mean(mat[, 1])
+        interval <- findInterval(dist, lags)
+        total <- sum(mat[, 2])
+        omega[[interval]] <- rbind(omega[[interval]], total)
+        np[interval] <- np[interval]+1
+        vars[[interval]] <- rbind(vars[[interval]], estimation/2)
+        dists[[interval]] <- rbind(dists[[interval]], dist)
+      }
+    }
+  }
+  weights <- unlist(lapply(omega, mean))
+  variogram <- rep(NA, l)
+  lambda <- NULL
+  gamma_hat <- unlist(lapply(vars, mean))
+  for (k in 1:l)
+  {
+    if(!is.na(gamma_hat[k]))
+    {
+      if (gamma_hat[k] <= fuv)
+      {
+        lam <- (weights[k] * (fuv - gamma_hat[k])/(fuv)) - (weights[k]^2)
+        if (lam < 0)
+        {
+          lam <- 0
+        }
+      }
+      else
+        lam <- weights[k] - (weights[k]^2)
+      lambda <- c(lambda, lam)
+    }
+  }
+  lambda <- max(lambda)
+  variogram <- fuv - (fuv - gamma_hat)*((weights)/(lambda + (weights^2)))
+
+  weights <- np/unlist(lapply(dists, mean, na.rm=T))
+  if (any(is.na(weights)) || any(is.na(variogram)))
+  {
+    variogram <- data.frame(dist = unlist(lapply(dists, mean, na.rm=T)), 
+                            squared_diff = variogram, 
+                            np = weights)[-unique(c(which(is.na(weights)), 
+                                                    which(is.na(variogram)))) ,]
+  }
+  else
+  {
+    variogram <- data.frame(dist = unlist(lapply(dists, mean, na.rm=T)), 
+                            squared_diff = variogram, 
+                            np = weights)
+  }
+  # variogram <- rbind(c(0, 0, max(variogram$np)), variogram)
   if(return_fuv)
   {
     return(list(fuv, variogram))

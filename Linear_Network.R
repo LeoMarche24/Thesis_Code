@@ -15,7 +15,8 @@ third <- rgb(63/255, 128/255, 97/255)
 fourth <- "darkred"
 grey <- "grey80"
 
-df <- read.csv('Data/LigurianSea_Simulation.csv')
+df <- read.csv('Data/RealData_August_LigurianSea.csv')
+df <- df[which(df$years == 2006) ,]
 B <- dim(df)[1]
 
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
@@ -198,7 +199,7 @@ sill <- 15
 range <- 2e5
 
 cov <- build_covariances(sill, range, distances, fun = spherical_covariance)
-simulation <- create_process_covariance(18, cov)
+simulation <- create_process_covariance(24, cov)
 
 df$Simulation <- simulation
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
@@ -228,7 +229,7 @@ ggplot() +
 # Try to build it with the bistochastic process
 
 sill <- 15
-range <- 2e5
+range <- 3e5
 
 cov <- build_covariances(sill, range, bistochastic, fun = spherical_covariance)
 simulation <- create_process_covariance(24, cov)
@@ -241,6 +242,14 @@ ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,],
   theme_minimal()
 
 variogram <- evaluate_variogram_penalization(simulation, bistochastic, l = 15, lambda = 0.03)
+
+ggplot() +
+  geom_point(data = variogram, aes(x=dist, y=squared_diff, size = np), col = col2) + 
+  labs(x = "Distance", y = "Squared differences") +
+  theme_minimal() +
+  labs(title = "Variogram")
+
+variogram <- evaluate_variogram_penalization_best_lambda(simulation, bistochastic, l = 15)
 
 ggplot() +
   geom_point(data = variogram, aes(x=dist, y=squared_diff, size = np), col = col2) + 

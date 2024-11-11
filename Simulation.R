@@ -18,23 +18,31 @@ grey <- "grey80"
 
 #### Building the network ####
 
-data <- read.csv('Data/august_LigurianSea.csv')
-df <- data[which(data$year==2022), 1:5]
-
-# df <- read.csv('Data/LigurianSea_Simulation.csv')
+df <- read.csv('Data/RealData_August_LigurianSea.csv')
+df <- df[which(df$years==2006) ,]
 
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
        aes(x=lon, y=lat, fill=temperature)) + 
   geom_raster() + 
   scale_fill_gradient(low = col2, high = col1)
 
-ggplot(df[which(!is.na(df$temperature)) ,], 
+ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
        aes(x = lon, y = lat, fill=temperature)) +
   geom_raster() + 
-  geom_segment(data = df[which(!is.na(df$temperature)) ,], aes(x = lon, y = lat, xend = lon + east, yend = lat + nord),
-               arrow = arrow(length = unit(0.2, "cm")), color = third, alpha=0.8) + 
+  geom_segment(data = df[which(!is.na(df$temperature)) ,], 
+               aes(x = lon, y = lat, xend = lon + east, yend = lat + nord),
+               arrow = arrow(length = unit(0.3, "cm")), color = third, alpha=1, 
+               linewidth = 2) + 
   labs(x = "Longitude", y = "Latitude") +
-  scale_fill_gradient(low = col2, high = col1, name = "Temperature")
+  scale_fill_gradient(low = col2, high = col1, name = "Temperature") + 
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 15),
+    axis.title = element_text(size = 15),
+    legend.text = element_text(size = 15),
+    legend.title = element_text(size = 15),
+    strip.text = element_text(size = 15)
+  )
 
 # Computing the matrices of proportional influence both upstream and downstream, the lines
 # and the distance matrix characterizing the network.
@@ -215,7 +223,16 @@ df$Simulation[inx] <- simulation
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
        aes(x=lon, y=lat, fill=Simulation)) + 
   geom_raster() + 
-  scale_fill_gradient(low = col2, high = col1)
+  scale_fill_gradient(low = col2, high = col1) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20) 
+  )
 
 variogram <- evaluate_variogram(simulation, NewMatrix, 15)
 ggplot() +
@@ -258,45 +275,49 @@ lines(variogram$dist, variogram$squared_diff, col = fourth, lwd = 3)
 # process and then evaluate the variogram
 
 sill <- 15
-range <- 1e5
-cov <- build_covariances(sill, range, bistochastic, fun = linear_covariance)
-simulation <- create_process_covariance(18, cov)
+range <- 2e5
+cov <- build_covariances(sill, range, bistochastic, fun = spherical_covariance)
+simulation <- create_process_covariance(2405, cov)
 df$Simulation <- NA
 df$Simulation[inx] <- simulation
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
        aes(x=lon, y=lat, fill=Simulation)) + 
   geom_raster() + 
-  scale_fill_gradient(low = col2, high = col1)
+  scale_fill_gradient(low = col2, high = col1) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20) 
+  )
 
-variogram <- evaluate_variogram(simulation, bistochastic, 15)
+variogram <- evaluate_variogram_unadjusted(simulation, bistochastic, 10, 5e5)
 ggplot() +
   geom_point(data = variogram, aes(x=dist, y=squared_diff, size = np), col = col2) + 
   labs(x = "Distance", y = "Squared differences") +
   theme_minimal() +
   labs(title = "Variogram")
 
-variogram <- evaluate_variogram_unadjusted(simulation, bistochastic, 15, 5e5)
-ggplot() +
-  geom_point(data = variogram, aes(x=dist, y=squared_diff, size = np), col = col2) + 
-  labs(x = "Distance", y = "Squared differences") +
-  theme_minimal() +
-  labs(title = "Variogram")
-
-grid <- seq(0.0001, 1, length = 5)
+grid <- seq(0.01, 1, length = 5)
 g <- length(grid)
 variogram_lambda <- lapply(grid, FUN = function(x) 
   evaluate_variogram_penalization(simulation, bistochastic, 15, lambda = x))
 xx <- seq(0, max(variogram$dist), length = 200)
-yy <- linear_kernel(c(sill, range), xx)
+yy <- spherical_kernel(c(sill, range), xx)
 plot(xx, yy, col = 'black', lwd = 2, ylim = c(0, 2*sill), type = 'l', 
      xlab = "Distances", ylab = "Semivariogram")
 for (i in 1:g)
   lines(variogram_lambda[[i]]$dist, variogram_lambda[[i]]$squared_diff, 
         col = colorRampPalette(c(col2, col1))(g)[i], lwd = 1.5)
-lines(variogram$dist, variogram$squared_diff, col = fourth, lwd = 3)
+lines(c(0,variogram$dist), c(0,variogram$squared_diff), col = fourth, lwd = 3)
 
 xx <- seq(0, max(unlist(lapply(variogram_lambda, function(x) x$dist))), length = 200)
 yy <- spherical_kernel(c(sill, range), xx)
+
+variogram_best <- evaluate_variogram_penalization_best_lambda(simulation, bistochastic, 15)
 
 # x11()
 # plot(xx, yy, col = 'black', lwd = 2, ylim = c(0, 2*sill), type = 'l',
@@ -304,634 +325,30 @@ yy <- spherical_kernel(c(sill, range), xx)
 # for (i in 1:g)
 #   lines(variogram_lambda[[i]]$dist, variogram_lambda[[i]]$squared_diff,
 #         col = colorRampPalette(c(grey, third))(g)[i], lwd = 2)
-# lines(variogram$dist, variogram$squared_diff, col = fourth, lwd = 3)
-# legend('topright', legend = c(grid, "unweighted"),
-#        fill = c(colorRampPalette(c(grey, third))(g), fourth))
-
-#### Testing the new estimator varying the range in the simulation ####
-
-# Normalized process
-
-B <- length(normalized)
-grid <- seq(1e5, 3e5, length = 10)
-lam_nor <- seq(0.001, 0.5, length = 10)
-g <- length(grid)
-l <- length(lam_nor)
-ranges_nor <- matrix(0, nrow = l, ncol = g)
-up_ranges_nor <- matrix(0, nrow = l, ncol = g)
-low_ranges_nor <- matrix(0, nrow = l, ncol = g)
-K <- 500
-sill <- 1
-library(progress)
-pb <- progress_bar$new(
-  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
-  total = K*g,
-  clear = FALSE,
-  width = 60
-)
-pb$tick(0)
-for (r in 1:g)
-{
-  range <- grid[r]
-  initial_params <- c(sill, range)
-  cov <- build_covariances(sill, range, normalized, fun = spherical_covariance)
-  r_nor <- matrix(0, nrow = K, ncol = l)
-  
-  for (iter in 1:K)
-  {
-    ma <- create_process_covariance(iter, cov)
-    
-    variogram_list <- lapply(lam_nor, FUN = function(x) 
-      evaluate_variogram_penalization(ma, normalized, 10, lambda = x))
-    
-    r_nor[iter,] <- unlist(lapply(variogram_list, function(x) fit_variogram(x, 
-                      spherical_kernel, initials = initial_params)[2]))
-    
-    pb$tick()
-  }
-  ranges_nor[,r] <- colMeans(r_nor)
-  up_ranges_nor[,r] <- apply(r_nor, MARGIN = 2, function(x) quantile(x, probs  = c(.95)))
-  low_ranges_nor[,r] <- apply(r_nor, MARGIN = 2, function(x) quantile(x, probs  = c(.05)))
-}
-
-df_values <- data.frame(x = grid, y = grid)
-df_matrix1 <- data.frame(x = rep(grid, each = l), 
-                         y = as.vector(ranges_nor), 
-                         group = rep(lam_nor, times = g),
-                         matrix = 'Point')
-df_matrix2 <- data.frame(x = rep(grid, each = l), 
-                         y = as.vector(up_ranges_nor), 
-                         group = rep(lam_nor, times = g),
-                         matrix = 'Up')
-df_matrix3 <- data.frame(x = rep(grid, each = l), 
-                         y = as.vector(low_ranges_nor), 
-                         group = rep(lam_nor, times = g),
-                         matrix = 'Low')
-df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
-df_matrix$line_type <- df_matrix$matrix
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
-  geom_line(data = df_matrix, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group), linetype = line_type), 
-            linewidth = 1) +
-  scale_color_manual(values = rep(colorRampPalette(c(col1, col2))(l), 3)) +
-  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
-  ylim(c(0, 3e5)) + 
-  labs(title = "Plot of Ranges estimates - Normalized process",
-       x = "Index",
-       y = "Value",
-       color = "Lambdas") +
-  theme_minimal()
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
-  geom_line(data = df_matrix1, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group)), 
-            linewidth = 1) +
-  scale_color_manual(values = rep(colorRampPalette(c(col1, col2))(l))) +
-  ylim(c(0, 3e5)) + 
-  labs(title = "Plot of Ranges estimates - Normalized process",
-       x = "Index",
-       y = "Value",
-       color = "Lambdas") +
-  theme_minimal()
-
-# The new matrix process
-
-B <- length(NewMatrix)
-grid <- seq(1e5, 3e5, length = 10)
-lam_new <- seq(0.01, 1, length = 10)
-g <- length(grid)
-l <- length(lam_new)
-ranges_new <- matrix(0, nrow = l, ncol = g)
-up_ranges_new <- matrix(0, nrow = l, ncol = g)
-low_ranges_new <- matrix(0, nrow = l, ncol = g)
-var_new <- matrix(0, nrow = l, ncol = g)
-K <- 500
-sill <- 1
-pb <- progress_bar$new(
-  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
-  total = K*g,
-  clear = FALSE,
-  width = 60
-)
-pb$tick(0)
-for (r in 1:g)
-{
-  range <- grid[r]
-  initial_params <- c(sill, range)
-  cov <- build_covariances(sill, range, NewMatrix, fun = linear_covariance)
-  r_new <- matrix(0, nrow = K, ncol = l)
-  
-  for (iter in 1:K)
-  {
-    ma <- create_process_covariance(iter, cov)
-    
-    variogram_list <- lapply(lam_new, FUN = function(x) 
-      evaluate_variogram_penalization(ma, NewMatrix, 10, lambda = x))
-    
-    r_new[iter,] <- unlist(lapply(variogram_list, function(x) fit_variogram(x, 
-                          spherical_kernel, initials = initial_params)[2]))
-    
-    pb$tick()
-  }
-  ranges_new[,r] <- colMeans(r_new)
-  up_ranges_new[,r] <- apply(r_new, MARGIN = 2, function(x) quantile(x, probs  = c(.95)))
-  low_ranges_new[,r] <- apply(r_new, MARGIN = 2, function(x) quantile(x, probs  = c(.05)))
-  var_new[,r] <- apply(r_new, MARGIN = 2, function(x) var(x))
-}
-
-df_values <- data.frame(x = 1:g, y = grid)
-df_matrix1 <- data.frame(x = rep(1:g, each = l), 
-                         y = as.vector(ranges_new), 
-                         group = rep(lam_new, times = g),
-                         matrix = 'Point')
-df_matrix2 <- data.frame(x = rep(1:g, each = l), 
-                         y = as.vector(up_ranges_new), 
-                         group = rep(lam_new, times = g),
-                         matrix = 'Up')
-df_matrix3 <- data.frame(x = rep(1:g, each = l), 
-                         y = as.vector(low_ranges_new), 
-                         group = rep(lam_new, times = g),
-                         matrix = 'Low')
-df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
-df_matrix$line_type <- df_matrix$matrix
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
-  geom_line(data = df_matrix, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group), linetype = line_type), 
-            linewidth = 1) +
-  scale_color_manual(values = rep(colorRampPalette(c(col1, col2))(l), 3)) +
-  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
-  ylim(c(0, 3e5)) + 
-  labs(title = "Plot of Ranges estimates - New matrix process",
-       x = "Index",
-       y = "Value",
-       color = "Lambdas",
-       linetype = "Processes") +
-  theme_minimal()
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
-  geom_line(data = df_matrix1, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group)), 
-            linewidth = 1) +
-  scale_color_manual(values = colorRampPalette(c(col1, col2))(l)) +
-  ylim(c(0, 3e5)) + 
-  labs(title = "Plot of Ranges estimates - New matrix process",
-       x = "Index",
-       y = "Value",
-       color = "Lambdas",
-       linetype = "Processes") +
-  theme_minimal()
-
-df_matrix1 <- data.frame(x = rep(grid, each = l), 
-                         y = as.vector(ranges_new), 
-                         group = rep(lam_new, times = g),
-                         vars = sqrt(as.vector(var_new)),
-                         matrix = 'Point')
-df_matrix1$vars[which(df_matrix1$y>max(grid))] <- 
-  min(df_matrix1$vars[which(df_matrix1$y<max(grid))])
-df_values <- data.frame(x = grid, y = grid)
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
-  geom_line(data = df_matrix1, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group), size = vars)) +
-  scale_color_manual(values = colorRampPalette(c(col1, col2))(l)) +
-  ylim(c(0, 3e5)) + 
-  labs(title = "Plot of Ranges estimates - Bistochastic process",
-       x = "Index",
-       y = "Value",
-       color = "Lambdas",
-       size = "Standard deviation") +
-  xlab("Range") +
-  ylab("Estimate") +
-  theme_minimal()
-
-# The bistochastic process
-
-B <- length(bistochastic)
-grid <- seq(1e5, 3e5, length = 10)
-lam_bist <- c(2.5,2.7,3,4,5)*10^(-2)
-g <- length(grid)
-l <- length(lam_bist)
-ranges_bist <- matrix(0, nrow = l, ncol = g)
-up_ranges_bist <- matrix(0, nrow = l, ncol = g)
-low_ranges_bist <- matrix(0, nrow = l, ncol = g)
-var_bist <- matrix(0, nrow = l, ncol = g)
-K <- 500
-sill <- 1
-pb <- progress_bar$new(
-  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
-  total = K*g,
-  clear = FALSE,
-  width = 60
-)
-pb$tick(0)
-for (r in 1:g)
-{
-  range <- grid[r]
-  initial_params <- c(sill, range)
-  cov <- build_covariances(sill, range, bistochastic, fun = spherical_covariance)
-  r_bist <- matrix(0, nrow = K, ncol = l)
-  
-  eigV <- eigen(cov)
-  S <- eigV$vectors %*% diag(sqrt(eigV$values)) %*% t(eigV$vectors)
-
-  for (iter in 1:K)
-  {
-    set.seed(iter)
-    ma <- S%*%rnorm(B,0,1)
-    
-    variogram_list <- lapply(lam_bist, FUN = function(x) 
-      evaluate_variogram_penalization(ma, bistochastic, 15, lambda = x))
-    
-    r_bist[iter,] <- unlist(lapply(variogram_list, function(x) fit_variogram(x, 
-              spherical_kernel, initials = initial_params)[2]))
-    
-    pb$tick()
-  }
-  ranges_bist[,r] <- colMeans(r_bist)
-  up_ranges_bist[,r] <- apply(r_bist, MARGIN = 2, function(x) quantile(x, probs  = c(.95)))
-  low_ranges_bist[,r] <- apply(r_bist, MARGIN = 2, function(x) quantile(x, probs  = c(.05)))
-  var_bist[,r] <- apply(r_bist, MARGIN = 2, function(x) var(x))
-}
-
-df_values <- data.frame(x = grid, y = grid)
-df_matrix1 <- data.frame(x = rep(grid, each = l), 
-                         y = as.vector(ranges_bist), 
-                         group = rep(lam_bist, times = g),
-                         matrix = 'Point')
-df_matrix2 <- data.frame(x = rep(grid, each = l), 
-                         y = as.vector(up_ranges_bist), 
-                         group = rep(lam_bist, times = g),
-                         matrix = 'Up')
-df_matrix3 <- data.frame(x = rep(grid, each = l), 
-                         y = as.vector(low_ranges_bist), 
-                         group = rep(lam_bist, times = g),
-                         matrix = 'Low')
-df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
-df_matrix$line_type <- df_matrix$matrix
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
-  geom_line(data = df_matrix, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group), linetype = line_type), 
-            linewidth = 1) +
-  scale_color_manual(values = rep(colorRampPalette(c(col1, col2))(l), 3)) +
-  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
-  ylim(c(0, 3e5)) + 
-  labs(title = "Plot of Ranges estimates - Bistochastic process",
-       x = "Index",
-       y = "Value",
-       color = "Lambdas",
-       linetype = "Processes") +
-  theme_minimal()
-
-df_matrix1 <- data.frame(x = rep(grid, each = l), 
-                         y = as.vector(ranges_bist), 
-                         group = rep(lam_bist, times = g),
-                         vars = sqrt(as.vector(var_bist)),
-                         matrix = 'Point')
-df_matrix1$vars[which(df_matrix1$y>max(grid))] <- 
-  min(df_matrix1$vars[which(df_matrix1$y<max(grid))])
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
-  geom_line(data = df_matrix1, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group), size = vars)) +
-  scale_color_manual(values = colorRampPalette(c(col1, col2))(l)) +
-  ylim(c(0, 3e5)) + 
-  labs(title = "Plot of Ranges estimates - Bistochastic process",
-       x = "Index",
-       y = "Value",
-       color = "Lambdas",
-       size = "Standard deviation") +
-  xlab("Range") +
-  ylab("Estimate") +
-  theme_minimal()
+# lines(c(0, variogram$dist), c(0, variogram$squared_diff), col = fourth, lwd = 3)
+# legend('topleft', legend = c(grid, "Unweighted", "True semi-variogram"),
+#        fill = c(colorRampPalette(c(grey, third))(g), fourth, "black"))
 
 # x11()
-# ggplot() +
-#   geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
-#   geom_line(data = df_matrix1, 
-#             aes(x = x, y = y, group = interaction(matrix, group), 
-#                 color = factor(group), size = vars)) +
-#   scale_color_manual(values = colorRampPalette(c(col1, col2))(l)) +
-#   ylim(c(0, 3e5)) + 
-#   labs(title = "Plot of Ranges estimates - Bistochastic process",
-#        x = "Index",
-#        y = "Value",
-#        color = "Lambdas",
-#        size = "Variance") +
-#   xlab("Range") +
-#   ylab("Estimate") +
-#   theme_minimal()
-
-#### Comparison of the estimators varying the range ####
-
-# Normalized process
-
-B <- length(normalized)
-lam_nor <- lam_nor[which.min(apply(ranges_nor, MARGIN = 1, function(x) sum((x - grid)^2)))]
-# lam_nor <- 0.143
-grid <- seq(1e5, 3e5, length = 10)
-g <- length(grid)
-ranges_nor <- rep(0, g)
-up_ranges_nor <- rep(0, g)
-low_ranges_nor <- rep(0, g)
-ranges_unwe <- rep(0, g)
-up_ranges_unwe <- rep(0, g)
-low_ranges_unwe <- rep(0, g)
-ranges_fcwa <- rep(0, g)
-up_ranges_fcwa <- rep(0, g)
-low_ranges_fcwa <- rep(0, g)
-K <- 500
-sill <- 1
-pb <- progress_bar$new(
-  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
-  total = K*g,
-  clear = FALSE,
-  width = 60
-)
-pb$tick(0)
-for (r in 1:g)
-{
-  range <- grid[r]
-  initial_params <- c(sill, range)
-  cov <- build_covariances(sill, range, normalized, fun = spherical_covariance)
-  r_nor <- rep(0, K)
-  r_unwe <- rep(0, K)
-  r_fcwa <- rep(0, K)
-  
-  for (iter in 1:K)
-  {
-    ma <- create_process_covariance(iter, cov)
-    
-    variogram <- evaluate_variogram_penalization(ma, normalized, 10, lambda = lam_nor)
-    r_nor[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
-    variogram <- evaluate_variogram_fcwa(ma, normalized, 10)
-    r_fcwa[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
-    variogram <- evaluate_variogram_unadjusted(ma, normalized, 10, 5e5)
-    r_unwe[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
-    
-    pb$tick()
-  }
-  ranges_nor[r] <- mean(r_nor)
-  up_ranges_nor[r] <- quantile(r_nor, probs  = c(.95))
-  low_ranges_nor[r] <- quantile(r_nor, probs  = c(.05))
-  ranges_unwe[r] <- mean(r_unwe)
-  up_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.95))
-  low_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.05))
-  ranges_fcwa[r] <- mean(r_fcwa)
-  up_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.95))
-  low_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.05))
-}
-
-df_values <- data.frame(x = 1:g, y = grid)
-df_matrix1 <- data.frame(x = rep(1:g, time = 3), 
-                         y = c(ranges_nor, ranges_unwe, ranges_fcwa), 
-                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
-                         matrix = 'Point')
-df_matrix2 <- data.frame(x = rep(1:g, time = 3), 
-                         y = c(up_ranges_nor, up_ranges_unwe, up_ranges_fcwa), 
-                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
-                         matrix = 'Up')
-df_matrix3 <- data.frame(x = rep(1:g, time = 3), 
-                         y = c(low_ranges_nor, low_ranges_unwe, low_ranges_fcwa), 
-                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
-                         matrix = 'Low')
-df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
-df_matrix$line_type <- df_matrix$matrix
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
-  geom_line(data = df_matrix, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group), linetype = line_type), 
-            linewidth = 1) +
-  scale_color_manual(values = rep(c(third, fourth, col1, col2), 3)) +
-  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
-  ylim(c(0, 3e5)) + 
-  labs(title = "Ranges estimates - Random path process - Normalized matrix",
-       x = "Index",
-       y = "Value",
-       color = "Lambdas") +
-  theme_minimal()
-
-# New matrix process
-
-B <- length(NewMatrix)
-lam_new <- lam_new[which.min(apply(ranges_new, MARGIN = 1, function(x) sum((x - grid)^2)))]
-# lam_new <- 0.15
-grid <- seq(1e5, 3e5, length = 10)
-ranges_new <- rep(0, g)
-up_ranges_new <- rep(0, g)
-low_ranges_new <- rep(0, g)
-ranges_unwe <- rep(0, g)
-up_ranges_unwe <- rep(0, g)
-low_ranges_unwe <- rep(0, g)
-ranges_fcwa <- rep(0, g)
-up_ranges_fcwa <- rep(0, g)
-low_ranges_fcwa <- rep(0, g)
-K <- 500
-sill <- 1
-pb <- progress_bar$new(
-  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
-  total = K*g,
-  clear = FALSE,
-  width = 60
-)
-pb$tick(0)
-for (r in 1:g)
-{
-  range <- grid[r]
-  initial_params <- c(sill, range)
-  cov <- build_covariances(sill, range, NewMatrix, fun = spherical_covariance)
-  r_new <- rep(0, K)
-  r_unwe <- rep(0, K)
-  r_fcwa <- rep(0, K)
-  
-  for (iter in 1:K)
-  {
-    ma <- create_process_covariance(iter, cov)
-    
-    variogram <- evaluate_variogram_penalization(ma, NewMatrix, 10, lambda = lam_new)
-    r_new[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
-    variogram <- evaluate_variogram_fcwa(ma, NewMatrix, 10)
-    r_fcwa[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
-    variogram <- evaluate_variogram_unadjusted(ma, NewMatrix, 10, 5e5)
-    r_unwe[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
-    
-    pb$tick()
-  }
-  ranges_new[r] <- mean(r_new)
-  up_ranges_new[r] <- quantile(r_new, probs  = c(.95))
-  low_ranges_new[r] <- quantile(r_new, probs  = c(.05))
-  ranges_unwe[r] <- mean(r_unwe)
-  up_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.95))
-  low_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.05))
-  ranges_fcwa[r] <- mean(r_fcwa)
-  up_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.95))
-  low_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.05))
-}
-
-df_values <- data.frame(x = 1:g, y = grid)
-df_matrix1 <- data.frame(x = rep(1:g, time = 3), 
-                         y = c(ranges_new, ranges_unwe, ranges_fcwa), 
-                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
-                         matrix = 'Point')
-df_matrix2 <- data.frame(x = rep(1:g, time = 3), 
-                         y = c(up_ranges_new, up_ranges_unwe, up_ranges_fcwa), 
-                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
-                         matrix = 'Up')
-df_matrix3 <- data.frame(x = rep(1:g, time = 3), 
-                         y = c(low_ranges_new, low_ranges_unwe, low_ranges_fcwa), 
-                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
-                         matrix = 'Low')
-df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
-df_matrix$line_type <- df_matrix$matrix
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", linewidth = 1) +
-  geom_line(data = df_matrix, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group), linetype = line_type), 
-            linewidth = 1) +
-  scale_color_manual(values = rep(c(third, fourth, col1), 3)) +
-  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
-  ylim(c(0, 3e5)) + 
-  labs(title = "Ranges estimates - Random path process - New matrix",
-       x = "Index",
-       y = "Value",
-       color = "Lambdas") +
-  theme_minimal()
-
-# Bistochastic process
-
-B <- length(bistochastic)
-lam_bist <- lam_bist[which.min(apply(ranges_bist, MARGIN = 1, function(x) sum((x - grid)^2)))]
-# lam_bist <- 0.04
-grid <- seq(1e5, 3e5, length = 10)
-g <- length(grid)
-ranges_bist <- rep(0, g)
-up_ranges_bist <- rep(0, g)
-low_ranges_bist <- rep(0, g)
-var_bist <- rep(0, g)
-ranges_unwe <- rep(0, g)
-up_ranges_unwe <- rep(0, g)
-low_ranges_unwe <- rep(0, g)
-var_unwe <- rep(0, g)
-ranges_fcwa <- rep(0, g)
-up_ranges_fcwa <- rep(0, g)
-low_ranges_fcwa <- rep(0, g)
-var_fcwa <- rep(0, g)
-K <- 500
-sill <- 1
-pb <- progress_bar$new(
-  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
-  total = K*g,
-  clear = FALSE,
-  width = 60
-)
-pb$tick(0)
-for (r in 1:g)
-{
-  range <- grid[r]
-  initial_params <- c(sill, range)
-  cov <- build_covariances(sill, range, bistochastic, fun = spherical_covariance)
-  r_bist <- rep(0, K)
-  r_unwe <- rep(0, K)
-  r_fcwa <- rep(0, K)
-  
-  for (iter in 1:K)
-  {
-    ma <- create_process_covariance(iter, cov)
-    
-    variogram <- evaluate_variogram_penalization(ma, bistochastic, 15, lambda = lam_bist)
-    r_bist[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
-    variogram <- evaluate_variogram_fcwa(ma, bistochastic, 15)
-    r_fcwa[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
-    variogram <- evaluate_variogram_unadjusted(ma, bistochastic, 15, 5e5)
-    r_unwe[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
-    
-    pb$tick()
-  }
-  ranges_bist[r] <- mean(r_bist)
-  up_ranges_bist[r] <- quantile(r_bist, probs  = c(.95))
-  low_ranges_bist[r] <- quantile(r_bist, probs  = c(.05))
-  var_bist[r] <- var(r_bist)
-  ranges_unwe[r] <- mean(r_unwe)
-  up_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.95))
-  low_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.05))
-  var_unwe[r] <- var(r_unwe)
-  ranges_fcwa[r] <- mean(r_fcwa)
-  up_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.95))
-  low_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.05))
-  var_fcwa[r] <- var(r_fcwa)
-}
-
-df_values <- data.frame(x = grid, y = grid)
-df_matrix1 <- data.frame(x = rep(grid, time = 3), 
-                         y = c(ranges_bist, ranges_unwe, ranges_fcwa), 
-                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
-                         matrix = 'Point')
-df_matrix2 <- data.frame(x = rep(grid, time = 3), 
-                         y = c(up_ranges_bist, up_ranges_unwe, up_ranges_fcwa), 
-                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
-                         matrix = 'Up')
-df_matrix3 <- data.frame(x = rep(grid, time = 3), 
-                         y = c(low_ranges_bist, low_ranges_unwe, low_ranges_fcwa), 
-                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
-                         matrix = 'Low')
-df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
-df_matrix$line_type <- df_matrix$matrix
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", linewidth = 1) +
-  geom_line(data = df_matrix, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group), linetype = line_type), 
-            linewidth = 1) +
-  scale_color_manual(values = rep(c(third, fourth, col1), 3)) +
-  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
-  ylim(c(0, 3e5)) + 
-  labs(title = "Ranges estimates - Random path process - Bistochastic matrix",
-       x = "Index",
-       y = "Value",
-       color = "Lambdas") +
-  theme_minimal()
-
-df_matrix <- data.frame(x = rep(grid, time = 2), 
-                         y = c(ranges_bist, ranges_unwe), 
-                         group = rep(c("Penalized", "Unweighted"), each = g),
-                        vars = c(var_bist, var_unwe),
-                         matrix = 'Point')
-
-ggplot() +
-  geom_line(data = df_values, aes(x = x, y = y), color = "black", linewidth = 1) +
-  geom_point(data = df_matrix, 
-            aes(x = x, y = y, group = interaction(matrix, group), 
-                color = factor(group), size = vars)) +
-  scale_color_manual(values = rep(c(third, fourth, col1), 3)) +
-  ylim(c(0, 3e5)) + 
-  scale_size_continuous(range = c(1, 5)) + 
-  labs(title = "Ranges estimates - Bistochastic matrix",
-       x = "Index",
-       y = "Value",
-       color = "Estimator",
-       size = "Variance") +
-  theme_minimal()
+# plot(xx, yy, col = 'black', lwd = 2, ylim = c(0, 2*sill), type = 'l',
+#      xlab = "Distances (meters)", ylab = "Semivariogram", cex.lab = 2, cex.axis = 2)
+# for (i in 1:g)
+#   lines(variogram_lambda[[i]]$dist, variogram_lambda[[i]]$squared_diff,
+#         col = colorRampPalette(c(grey, third))(g)[i], lwd = 2)
+# lines(c(0, variogram$dist), c(0, variogram$squared_diff), col = fourth, lwd = 3)
+# lines(c(0, variogram_best$dist), c(0, variogram_best$squared_diff), col = col2, lwd = 3)
+# legend("topleft",
+#        legend = grid, # The gradient for 'grid' lines
+#        fill = colorRampPalette(c(grey, third))(g),
+#        bty = "n",     # No border
+#        cex = 1.3)     # Increase text size
+# legend("top",
+#        legend = c("Unweighted", "Best lambda", "True semi-variogram"),
+#        fill = c(fourth, col2, "black"),
+#        bty = "n",     # No border
+#        cex = 1.3,     # Increase text size
+#        x.intersp = 0.5,  # Adjusts horizontal spacing
+#        inset = c(0.1, 0))  # Slightly shifts to the right
 
 #### LOO - cross validation ####
 
@@ -1425,8 +842,8 @@ for (iter in 1:K)
 {
   ma <- create_process_covariance(iter, cov)
   
-  variogram <- evaluate_variogram_penalization(ma, bistochastic, 15, 
-                                               return_fuv = T, lambda = lam_bist)
+  variogram <- evaluate_variogram_penalization_best_lambda(ma, bistochastic, 10, 
+                                               return_fuv = T)
   fuv <- variogram[[1]]
   variogram <- variogram[[2]]
   params <- fit_variogram(variogram, spherical_kernel, initial_params)
@@ -1438,7 +855,7 @@ for (iter in 1:K)
                                        fun = spherical_covariance)
   variograms_bist[[iter]] <- variogram
   
-  variogram <- evaluate_variogram_penalization(ma, NewMatrix, 15, lambda = lam_new)
+  variogram <- evaluate_variogram_penalization_best_lambda(ma, NewMatrix, 15)
   params <- fit_variogram(variogram, spherical_kernel, initial_params)
   estimated_range <- params[2]
   ranges_new[iter] <- estimated_range
@@ -1453,13 +870,13 @@ for (iter in 1:K)
   aux <- predictions[[2]]
   errors_new_pen[iter,] <- (aux$preds - ma)^2
   
-  variogram <- evaluate_variogram_penalization(ma, normalized, 15, lambda = lam_nor)
+  variogram <- evaluate_variogram_penalization_best_lambda(ma, normalized, 15)
   params <- fit_variogram(variogram, spherical_kernel, initial_params)
   estimated_range <- params[2]
   ranges_nor[iter] <- estimated_range
   variograms_nor[[iter]] <- variogram
   
-  variogram <- evaluate_variogram_unadjusted(ma, bistochastic, 15, 6e5)
+  variogram <- evaluate_variogram_unadjusted(ma, bistochastic, 15, 4e5)
   params <- fit_variogram(variogram, spherical_kernel, initials = initial_params)
   sills_unwe[iter] <- params[1]
   ranges_unwe[iter] <- params[2]
@@ -1496,7 +913,14 @@ ggplot(data, aes(x = value, fill = group)) +
        x = "Value",
        y = "Density") +
   xlim(0, 2*sill) +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20),
+    strip.text = element_text(size = 20)
+  )
 
 # Range estimate
 
@@ -1522,7 +946,7 @@ ggplot(data, aes(x = value, fill = group)) +
 
 data <- data.frame(
   value = c(ranges_bist, ranges_unwe),
-  group = factor(c(rep("Range random path process - bistochastic", length(ranges_bist)),
+  group = factor(c(rep("Range penalized estimator", length(ranges_bist)),
                    rep("Ranges unweighted estimator", length(ranges_unwe))))
 )
 # Create the combined histogram
@@ -1532,11 +956,18 @@ ggplot(data, aes(x = value, fill = group)) +
   facet_wrap(~ group, ncol = 1, scales = "free_y") +
   scale_fill_manual(values = c(third, fourth)) +
   theme_minimal() +
-  labs(title = "Density Estimates for Three Different Groups",
+  labs(title = "Density Estimates for the range parameter",
        x = "Value",
        y = "Density") +
   xlim(0, 5e5) +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20),
+    strip.text = element_text(size = 20) 
+  )
 
 # General look to the shapes of the empirical semi-variograms
 
@@ -1550,12 +981,16 @@ plot(xx, yy, ylim = c(0,2*sill), type = 'l')
 lapply(variograms_new, function(x) lines(x$dist, x$squared_diff, col = grey))
 lines(xx, yy, lwd = 5, col = third)
 
-plot(xx, yy, ylim = c(0,2*sill), type = 'l')
-lapply(variograms_bist, function(x) lines(x$dist, x$squared_diff, col = grey))
+plot(xx, yy, ylim = c(0,2*sill), type = 'l', xlab="Distance (meters)", ylab="Semi-variogram",
+     cex.lab=2,cex.axis=2, xlim=c(0,
+         max(unlist(lapply(variograms_bist,function(x) max(x$dist))))))
+lapply(variograms_bist, function(x) lines(c(0,x$dist), c(0,x$squared_diff), col = grey))
 lines(xx, yy, lwd = 5, col = third)
 
-plot(xx, yy, ylim = c(0,2*sill), type = 'l')
-lapply(variograms_unwe, function(x) lines(x$dist, x$squared_diff, col = grey))
+plot(xx, yy, ylim = c(0,2*sill), type = 'l', xlab="Distance (meters)", ylab="Semi-variogram",
+     cex.lab=2,cex.axis=2,xlim=c(0,
+     max(unlist(lapply(variograms_bist,function(x) max(x$dist))))))
+lapply(variograms_unwe, function(x) lines(c(0,x$dist), c(0,x$squared_diff), col = grey))
 lines(xx, yy, lwd = 5, col = third)
 
 # Mean squared error of the empirical semi-variograms
@@ -1581,15 +1016,15 @@ dists <- lapply(variograms_bist, function(x) x$dist)
 variograms <- do.call(rbind, squared_diff)
 dists_bist <- colMeans(do.call(rbind, dists))
 MSE_bist <- colMeans((variograms - matrix(spherical_kernel(c(sill, range), 
-                                                           dists_bist), ncol = dim(variograms)[2], 
-                                          nrow = dim(variograms)[1], byrow = T))^2)
+             dists_bist), ncol = dim(variograms)[2], 
+          nrow = dim(variograms)[1], byrow = T))^2)
 
 squared_diff <- lapply(variograms_unwe, function(x) x$squared_diff)
 dists <- lapply(variograms_unwe, function(x) x$dist)
 variograms <- do.call(rbind, squared_diff)
 dists_unwe <- colMeans(do.call(rbind, dists))
 MSE_unwe <- colMeans((variograms - matrix(spherical_kernel(c(sill, range), 
-                                                           dists_unwe), ncol = dim(variograms)[2], 
+               dists_unwe), ncol = dim(variograms)[2], 
                                           nrow = dim(variograms)[1], byrow = T))^2)
 
 data <- data.frame(
@@ -1610,15 +1045,23 @@ ggplot(data, aes(x = dist, y = MSE, color = type)) +
 data <- data.frame(
   dist = c(dists_bist, dists_unwe),
   MSE = c(MSE_bist, MSE_unwe),
-  type = factor(c(rep("Random process penalized - bistochastic", length(dists_bist)),
+  Estimator = factor(c(rep("Penalized estimator", length(dists_bist)),
                   rep("Unweighted estimator", length(dists_unwe))))
 )
-ggplot(data, aes(x = dist, y = MSE, color = type)) +
+ggplot(data, aes(x = dist, y = MSE, color = Estimator)) +
   geom_line(size = 1) +
   scale_color_manual(values = c(col1, col2)) +
-  labs(x = "Distance", y = "MSE") +
+  labs(x = "Distance (meters)", y = "MSE") +
   ylim(0, max(data$MSE)) +
-  theme_minimal()
+  xlim(0, 3e5) +
+  theme_minimal()+
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 15),
+    legend.title = element_text(size = 15),
+    strip.text = element_text(size = 15)
+  )
 
 # Plot of the errors evaluated via leave one out cross validation
 
@@ -1647,33 +1090,680 @@ errors_data <- data.frame(
 
 ggplot(errors_data, aes(x = process, y = error, fill = process)) +
   geom_boxplot(outlier.stroke = 1) +
-  labs(title = "Boxplots of Errors from Different Processes",
-       x = "Process",
+  labs(x = "Process",
        y = "Error") +
   scale_fill_manual(values = c(third, third)) +
   theme_minimal() +
-  theme(legend.position = "none")
+  theme(legend.position = "none")+
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20)
+  )
 
 # Highlighting the distribution of the errors in the domain:
 # A brighter colour stands for a better performance of the bistochastic process
 # which by the way is the process generating the data.
-df$errors <- NA
+df$Errors <- NA
 
-df$errors[inx] <- colMeans(errors_bist_pen-errors_new_pen)
+df$Errors[inx] <- colMeans(errors_bist_pen- errors_bist_unwe)
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
-       aes(x=lon, y=lat, fill=errors)) + 
+       aes(x=lon, y=lat, fill=Errors)) + 
   geom_raster() + 
   scale_fill_gradient(low = col2, high = col1)
 
-df$errors[inx] <- colMeans(errors_bist_unwe-errors_new_unwe)
+df$Errors[inx] <- colMeans(errors_bist_unwe-errors_new_unwe)
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
-       aes(x=lon, y=lat, fill=errors)) + 
+       aes(x=lon, y=lat, fill=Errors)) + 
   geom_raster() + 
   scale_fill_gradient(low = col2, high = col1)
 
-df$errors[inx] <- colMeans(errors_bist_pen)
+df$Errors[inx] <- colMeans(errors_bist_pen)
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
-       aes(x=lon, y=lat, fill=errors)) + 
+       aes(x=lon, y=lat, fill=Errors)) + 
   geom_raster() + 
-  scale_fill_gradient(low = col2, high = col1)
+  scale_fill_gradient(low = col2, high = col1) +
+  xlab("Longitude")+
+  ylab("Latitude") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20),
+    strip.text = element_text(size = 20)
+  )
 
+#### Further Simulations ####
+
+#### Testing the new estimator varying the range in the simulation ####
+
+# Normalized process
+
+B <- length(normalized)
+grid <- seq(1e5, 3e5, length = 10)
+lam_nor <- seq(0.001, 0.5, length = 10)
+g <- length(grid)
+l <- length(lam_nor)
+ranges_nor <- matrix(0, nrow = l, ncol = g)
+up_ranges_nor <- matrix(0, nrow = l, ncol = g)
+low_ranges_nor <- matrix(0, nrow = l, ncol = g)
+K <- 500
+sill <- 1
+library(progress)
+pb <- progress_bar$new(
+  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
+  total = K*g,
+  clear = FALSE,
+  width = 60
+)
+pb$tick(0)
+for (r in 1:g)
+{
+  range <- grid[r]
+  initial_params <- c(sill, range)
+  cov <- build_covariances(sill, range, normalized, fun = spherical_covariance)
+  r_nor <- matrix(0, nrow = K, ncol = l)
+  
+  for (iter in 1:K)
+  {
+    ma <- create_process_covariance(iter, cov)
+    
+    variogram_list <- lapply(lam_nor, FUN = function(x) 
+      evaluate_variogram_penalization(ma, normalized, 10, lambda = x))
+    
+    r_nor[iter,] <- unlist(lapply(variogram_list, function(x) fit_variogram(x, 
+                                                                            spherical_kernel, initials = initial_params)[2]))
+    
+    pb$tick()
+  }
+  ranges_nor[,r] <- colMeans(r_nor)
+  up_ranges_nor[,r] <- apply(r_nor, MARGIN = 2, function(x) quantile(x, probs  = c(.95)))
+  low_ranges_nor[,r] <- apply(r_nor, MARGIN = 2, function(x) quantile(x, probs  = c(.05)))
+}
+
+df_values <- data.frame(x = grid, y = grid)
+df_matrix1 <- data.frame(x = rep(grid, each = l), 
+                         y = as.vector(ranges_nor), 
+                         group = rep(lam_nor, times = g),
+                         matrix = 'Point')
+df_matrix2 <- data.frame(x = rep(grid, each = l), 
+                         y = as.vector(up_ranges_nor), 
+                         group = rep(lam_nor, times = g),
+                         matrix = 'Up')
+df_matrix3 <- data.frame(x = rep(grid, each = l), 
+                         y = as.vector(low_ranges_nor), 
+                         group = rep(lam_nor, times = g),
+                         matrix = 'Low')
+df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
+df_matrix$line_type <- df_matrix$matrix
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
+  geom_line(data = df_matrix, 
+            aes(x = x, y = y, group = interaction(matrix, group), 
+                color = factor(group), linetype = line_type), 
+            linewidth = 1) +
+  scale_color_manual(values = rep(colorRampPalette(c(col1, col2))(l), 3)) +
+  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
+  ylim(c(0, 3e5)) + 
+  labs(title = "Plot of Ranges estimates - Normalized process",
+       x = "Index",
+       y = "Value",
+       color = "Lambdas") +
+  theme_minimal()
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
+  geom_line(data = df_matrix1, 
+            aes(x = x, y = y, group = interaction(matrix, group), 
+                color = factor(group)), 
+            linewidth = 1) +
+  scale_color_manual(values = rep(colorRampPalette(c(col1, col2))(l))) +
+  ylim(c(0, 3e5)) + 
+  labs(title = "Plot of Ranges estimates - Normalized process",
+       x = "Index",
+       y = "Value",
+       color = "Lambdas") +
+  theme_minimal()
+
+# The new matrix process
+
+B <- length(NewMatrix)
+grid <- seq(1e5, 3e5, length = 10)
+lam_new <- seq(0.01, 1, length = 10)
+g <- length(grid)
+l <- length(lam_new)
+ranges_new <- matrix(0, nrow = l, ncol = g)
+up_ranges_new <- matrix(0, nrow = l, ncol = g)
+low_ranges_new <- matrix(0, nrow = l, ncol = g)
+var_new <- matrix(0, nrow = l, ncol = g)
+K <- 500
+sill <- 1
+pb <- progress_bar$new(
+  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
+  total = K*g,
+  clear = FALSE,
+  width = 60
+)
+pb$tick(0)
+for (r in 1:g)
+{
+  range <- grid[r]
+  initial_params <- c(sill, range)
+  cov <- build_covariances(sill, range, NewMatrix, fun = linear_covariance)
+  r_new <- matrix(0, nrow = K, ncol = l)
+  
+  for (iter in 1:K)
+  {
+    ma <- create_process_covariance(iter, cov)
+    
+    variogram_list <- lapply(lam_new, FUN = function(x) 
+      evaluate_variogram_penalization(ma, NewMatrix, 10, lambda = x))
+    
+    r_new[iter,] <- unlist(lapply(variogram_list, function(x) fit_variogram(x, 
+                                                                            spherical_kernel, initials = initial_params)[2]))
+    
+    pb$tick()
+  }
+  ranges_new[,r] <- colMeans(r_new)
+  up_ranges_new[,r] <- apply(r_new, MARGIN = 2, function(x) quantile(x, probs  = c(.95)))
+  low_ranges_new[,r] <- apply(r_new, MARGIN = 2, function(x) quantile(x, probs  = c(.05)))
+  var_new[,r] <- apply(r_new, MARGIN = 2, function(x) var(x))
+}
+
+df_values <- data.frame(x = 1:g, y = grid)
+df_matrix1 <- data.frame(x = rep(1:g, each = l), 
+                         y = as.vector(ranges_new), 
+                         group = rep(lam_new, times = g),
+                         matrix = 'Point')
+df_matrix2 <- data.frame(x = rep(1:g, each = l), 
+                         y = as.vector(up_ranges_new), 
+                         group = rep(lam_new, times = g),
+                         matrix = 'Up')
+df_matrix3 <- data.frame(x = rep(1:g, each = l), 
+                         y = as.vector(low_ranges_new), 
+                         group = rep(lam_new, times = g),
+                         matrix = 'Low')
+df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
+df_matrix$line_type <- df_matrix$matrix
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
+  geom_line(data = df_matrix, 
+            aes(x = x, y = y, group = interaction(matrix, group), 
+                color = factor(group), linetype = line_type), 
+            linewidth = 1) +
+  scale_color_manual(values = rep(colorRampPalette(c(col1, col2))(l), 3)) +
+  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
+  ylim(c(0, 3e5)) + 
+  labs(title = "Plot of Ranges estimates - New matrix process",
+       x = "Index",
+       y = "Value",
+       color = "Lambdas",
+       linetype = "Processes") +
+  theme_minimal()
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
+  geom_line(data = df_matrix1, 
+            aes(x = x, y = y, group = interaction(matrix, group), 
+                color = factor(group)), 
+            linewidth = 1) +
+  scale_color_manual(values = colorRampPalette(c(col1, col2))(l)) +
+  ylim(c(0, 3e5)) + 
+  labs(title = "Plot of Ranges estimates - New matrix process",
+       x = "Index",
+       y = "Value",
+       color = "Lambdas",
+       linetype = "Processes") +
+  theme_minimal()
+
+df_matrix1 <- data.frame(x = rep(grid, each = l), 
+                         y = as.vector(ranges_new), 
+                         group = rep(lam_new, times = g),
+                         vars = sqrt(as.vector(var_new)),
+                         matrix = 'Point')
+df_matrix1$vars[which(df_matrix1$y>max(grid))] <- 
+  min(df_matrix1$vars[which(df_matrix1$y<max(grid))])
+df_values <- data.frame(x = grid, y = grid)
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
+  geom_line(data = df_matrix1, 
+            aes(x = x, y = y, group = interaction(matrix, group), 
+                color = factor(group), size = vars)) +
+  scale_color_manual(values = colorRampPalette(c(col1, col2))(l)) +
+  ylim(c(0, 3e5)) + 
+  labs(title = "Plot of Ranges estimates - Bistochastic process",
+       x = "Index",
+       y = "Value",
+       color = "Lambdas",
+       size = "Standard deviation") +
+  xlab("Range") +
+  ylab("Estimate") +
+  theme_minimal()
+
+# The bistochastic process
+
+B <- length(bistochastic)
+grid <- seq(1e5, 3e5, length = 10)
+lam_bist <- c(2.5,2.7,3,4,5)*10^(-2)
+g <- length(grid)
+l <- length(lam_bist)
+ranges_bist <- matrix(0, nrow = l, ncol = g)
+up_ranges_bist <- matrix(0, nrow = l, ncol = g)
+low_ranges_bist <- matrix(0, nrow = l, ncol = g)
+var_bist <- matrix(0, nrow = l, ncol = g)
+K <- 500
+sill <- 1
+pb <- progress_bar$new(
+  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
+  total = K*g,
+  clear = FALSE,
+  width = 60
+)
+pb$tick(0)
+for (r in 1:g)
+{
+  range <- grid[r]
+  initial_params <- c(sill, range)
+  cov <- build_covariances(sill, range, bistochastic, fun = spherical_covariance)
+  r_bist <- matrix(0, nrow = K, ncol = l)
+  
+  eigV <- eigen(cov)
+  S <- eigV$vectors %*% diag(sqrt(eigV$values)) %*% t(eigV$vectors)
+  
+  for (iter in 1:K)
+  {
+    set.seed(iter)
+    ma <- S%*%rnorm(B,0,1)
+    
+    variogram_list <- lapply(lam_bist, FUN = function(x) 
+      evaluate_variogram_penalization(ma, bistochastic, 15, lambda = x))
+    
+    r_bist[iter,] <- unlist(lapply(variogram_list, function(x) fit_variogram(x, 
+                                                                             spherical_kernel, initials = initial_params)[2]))
+    
+    pb$tick()
+  }
+  ranges_bist[,r] <- colMeans(r_bist)
+  up_ranges_bist[,r] <- apply(r_bist, MARGIN = 2, function(x) quantile(x, probs  = c(.95)))
+  low_ranges_bist[,r] <- apply(r_bist, MARGIN = 2, function(x) quantile(x, probs  = c(.05)))
+  var_bist[,r] <- apply(r_bist, MARGIN = 2, function(x) var(x))
+}
+
+df_values <- data.frame(x = grid, y = grid)
+df_matrix1 <- data.frame(x = rep(grid, each = l), 
+                         y = as.vector(ranges_bist), 
+                         group = rep(lam_bist, times = g),
+                         matrix = 'Point')
+df_matrix2 <- data.frame(x = rep(grid, each = l), 
+                         y = as.vector(up_ranges_bist), 
+                         group = rep(lam_bist, times = g),
+                         matrix = 'Up')
+df_matrix3 <- data.frame(x = rep(grid, each = l), 
+                         y = as.vector(low_ranges_bist), 
+                         group = rep(lam_bist, times = g),
+                         matrix = 'Low')
+df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
+df_matrix$line_type <- df_matrix$matrix
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
+  geom_line(data = df_matrix, 
+            aes(x = x, y = y, group = interaction(matrix, group), 
+                color = factor(group), linetype = line_type), 
+            linewidth = 1) +
+  scale_color_manual(values = rep(colorRampPalette(c(col1, col2))(l), 3)) +
+  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
+  ylim(c(0, 3e5)) + 
+  labs(title = "Plot of Ranges estimates - Bistochastic process",
+       x = "Index",
+       y = "Value",
+       color = "Lambdas",
+       linetype = "Processes") +
+  theme_minimal()
+
+df_matrix1 <- data.frame(x = rep(grid, each = l), 
+                         y = as.vector(ranges_bist), 
+                         group = rep(lam_bist, times = g),
+                         vars = sqrt(as.vector(var_bist)),
+                         matrix = 'Point')
+df_matrix1$vars[which(df_matrix1$y>max(grid))] <- 
+  min(df_matrix1$vars[which(df_matrix1$y<max(grid))])
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
+  geom_line(data = df_matrix1, 
+            aes(x = x, y = y, group = interaction(matrix, group), 
+                color = factor(group), size = vars)) +
+  scale_color_manual(values = colorRampPalette(c(col1, col2))(l)) +
+  ylim(c(0, 3e5)) + 
+  labs(title = "Plot of Ranges estimates - Bistochastic process",
+       x = "Index",
+       y = "Value",
+       color = "Lambdas",
+       size = "Standard deviation") +
+  xlab("Range") +
+  ylab("Estimate") +
+  theme_minimal()
+
+# x11()
+# ggplot() +
+#   geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
+#   geom_line(data = df_matrix1, 
+#             aes(x = x, y = y, group = interaction(matrix, group), 
+#                 color = factor(group), size = vars)) +
+#   scale_color_manual(values = colorRampPalette(c(col1, col2))(l)) +
+#   ylim(c(0, 3e5)) + 
+#   labs(title = "Plot of Ranges estimates - Bistochastic process",
+#        x = "Index",
+#        y = "Value",
+#        color = "Lambdas",
+#        size = "Variance") +
+#   xlab("Range") +
+#   ylab("Estimate") +
+#   theme_minimal()
+
+#### Comparison of the estimators varying the range ####
+
+# Normalized process
+
+B <- length(normalized)
+lam_nor <- lam_nor[which.min(apply(ranges_nor, MARGIN = 1, function(x) sum((x - grid)^2)))]
+# lam_nor <- 0.143
+grid <- seq(1e5, 3e5, length = 10)
+g <- length(grid)
+ranges_nor <- rep(0, g)
+up_ranges_nor <- rep(0, g)
+low_ranges_nor <- rep(0, g)
+ranges_unwe <- rep(0, g)
+up_ranges_unwe <- rep(0, g)
+low_ranges_unwe <- rep(0, g)
+ranges_fcwa <- rep(0, g)
+up_ranges_fcwa <- rep(0, g)
+low_ranges_fcwa <- rep(0, g)
+K <- 500
+sill <- 1
+pb <- progress_bar$new(
+  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
+  total = K*g,
+  clear = FALSE,
+  width = 60
+)
+pb$tick(0)
+for (r in 1:g)
+{
+  range <- grid[r]
+  initial_params <- c(sill, range)
+  cov <- build_covariances(sill, range, normalized, fun = spherical_covariance)
+  r_nor <- rep(0, K)
+  r_unwe <- rep(0, K)
+  r_fcwa <- rep(0, K)
+  
+  for (iter in 1:K)
+  {
+    ma <- create_process_covariance(iter, cov)
+    
+    variogram <- evaluate_variogram_penalization(ma, normalized, 10, lambda = lam_nor)
+    r_nor[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
+    variogram <- evaluate_variogram_fcwa(ma, normalized, 10)
+    r_fcwa[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
+    variogram <- evaluate_variogram_unadjusted(ma, normalized, 10, 5e5)
+    r_unwe[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
+    
+    pb$tick()
+  }
+  ranges_nor[r] <- mean(r_nor)
+  up_ranges_nor[r] <- quantile(r_nor, probs  = c(.95))
+  low_ranges_nor[r] <- quantile(r_nor, probs  = c(.05))
+  ranges_unwe[r] <- mean(r_unwe)
+  up_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.95))
+  low_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.05))
+  ranges_fcwa[r] <- mean(r_fcwa)
+  up_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.95))
+  low_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.05))
+}
+
+df_values <- data.frame(x = 1:g, y = grid)
+df_matrix1 <- data.frame(x = rep(1:g, time = 3), 
+                         y = c(ranges_nor, ranges_unwe, ranges_fcwa), 
+                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
+                         matrix = 'Point')
+df_matrix2 <- data.frame(x = rep(1:g, time = 3), 
+                         y = c(up_ranges_nor, up_ranges_unwe, up_ranges_fcwa), 
+                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
+                         matrix = 'Up')
+df_matrix3 <- data.frame(x = rep(1:g, time = 3), 
+                         y = c(low_ranges_nor, low_ranges_unwe, low_ranges_fcwa), 
+                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
+                         matrix = 'Low')
+df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
+df_matrix$line_type <- df_matrix$matrix
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", size = 1) +
+  geom_line(data = df_matrix, 
+            aes(x = x, y = y, group = interaction(matrix, group), 
+                color = factor(group), linetype = line_type), 
+            linewidth = 1) +
+  scale_color_manual(values = rep(c(third, fourth, col1, col2), 3)) +
+  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
+  ylim(c(0, 3e5)) + 
+  labs(title = "Ranges estimates - Random path process - Normalized matrix",
+       x = "Index",
+       y = "Value",
+       color = "Lambdas") +
+  theme_minimal()
+
+# New matrix process
+
+B <- length(NewMatrix)
+lam_new <- lam_new[which.min(apply(ranges_new, MARGIN = 1, function(x) sum((x - grid)^2)))]
+# lam_new <- 0.15
+grid <- seq(1e5, 3e5, length = 10)
+ranges_new <- rep(0, g)
+up_ranges_new <- rep(0, g)
+low_ranges_new <- rep(0, g)
+ranges_unwe <- rep(0, g)
+up_ranges_unwe <- rep(0, g)
+low_ranges_unwe <- rep(0, g)
+ranges_fcwa <- rep(0, g)
+up_ranges_fcwa <- rep(0, g)
+low_ranges_fcwa <- rep(0, g)
+K <- 500
+sill <- 1
+pb <- progress_bar$new(
+  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
+  total = K*g,
+  clear = FALSE,
+  width = 60
+)
+pb$tick(0)
+for (r in 1:g)
+{
+  range <- grid[r]
+  initial_params <- c(sill, range)
+  cov <- build_covariances(sill, range, NewMatrix, fun = spherical_covariance)
+  r_new <- rep(0, K)
+  r_unwe <- rep(0, K)
+  r_fcwa <- rep(0, K)
+  
+  for (iter in 1:K)
+  {
+    ma <- create_process_covariance(iter, cov)
+    
+    variogram <- evaluate_variogram_penalization(ma, NewMatrix, 10, lambda = lam_new)
+    r_new[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
+    variogram <- evaluate_variogram_fcwa(ma, NewMatrix, 10)
+    r_fcwa[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
+    variogram <- evaluate_variogram_unadjusted(ma, NewMatrix, 10, 5e5)
+    r_unwe[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
+    
+    pb$tick()
+  }
+  ranges_new[r] <- mean(r_new)
+  up_ranges_new[r] <- quantile(r_new, probs  = c(.95))
+  low_ranges_new[r] <- quantile(r_new, probs  = c(.05))
+  ranges_unwe[r] <- mean(r_unwe)
+  up_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.95))
+  low_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.05))
+  ranges_fcwa[r] <- mean(r_fcwa)
+  up_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.95))
+  low_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.05))
+}
+
+df_values <- data.frame(x = 1:g, y = grid)
+df_matrix1 <- data.frame(x = rep(1:g, time = 3), 
+                         y = c(ranges_new, ranges_unwe, ranges_fcwa), 
+                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
+                         matrix = 'Point')
+df_matrix2 <- data.frame(x = rep(1:g, time = 3), 
+                         y = c(up_ranges_new, up_ranges_unwe, up_ranges_fcwa), 
+                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
+                         matrix = 'Up')
+df_matrix3 <- data.frame(x = rep(1:g, time = 3), 
+                         y = c(low_ranges_new, low_ranges_unwe, low_ranges_fcwa), 
+                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
+                         matrix = 'Low')
+df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
+df_matrix$line_type <- df_matrix$matrix
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", linewidth = 1) +
+  geom_line(data = df_matrix, 
+            aes(x = x, y = y, group = interaction(matrix, group), 
+                color = factor(group), linetype = line_type), 
+            linewidth = 1) +
+  scale_color_manual(values = rep(c(third, fourth, col1), 3)) +
+  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
+  ylim(c(0, 3e5)) + 
+  labs(title = "Ranges estimates - Random path process - New matrix",
+       x = "Index",
+       y = "Value",
+       color = "Lambdas") +
+  theme_minimal()
+
+# Bistochastic process
+
+B <- length(bistochastic)
+grid <- seq(5e4, 2e5, length = 10)
+g <- length(grid)
+ranges_bist <- rep(0, g)
+up_ranges_bist <- rep(0, g)
+low_ranges_bist <- rep(0, g)
+var_bist <- rep(0, g)
+ranges_unwe <- rep(0, g)
+up_ranges_unwe <- rep(0, g)
+low_ranges_unwe <- rep(0, g)
+var_unwe <- rep(0, g)
+ranges_fcwa <- rep(0, g)
+up_ranges_fcwa <- rep(0, g)
+low_ranges_fcwa <- rep(0, g)
+var_fcwa <- rep(0, g)
+K <- 500
+sill <- 1
+pb <- progress_bar$new(
+  format = "[:bar] :percent Elapsed: :elapsedfull Time to finish: :eta",
+  total = K*g,
+  clear = FALSE,
+  width = 60
+)
+pb$tick(0)
+for (r in 1:g)
+{
+  range <- grid[r]
+  initial_params <- c(sill, range)
+  cov <- build_covariances(sill, range, bistochastic, fun = spherical_covariance)
+  r_bist <- rep(0, K)
+  r_unwe <- rep(0, K)
+  r_fcwa <- rep(0, K)
+  
+  for (iter in 1:K)
+  {
+    ma <- create_process_covariance(iter, cov)
+    
+    variogram <- evaluate_variogram_penalization_best_lambda(ma, bistochastic, 15)
+    r_bist[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
+    variogram <- evaluate_variogram_fcwa(ma, bistochastic, 15)
+    r_fcwa[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
+    variogram <- evaluate_variogram_unadjusted(ma, bistochastic, 15, 5e5)
+    r_unwe[iter] <- fit_variogram(variogram, spherical_kernel, initials = initial_params)[2]
+    
+    pb$tick()
+  }
+  ranges_bist[r] <- median(r_bist)
+  up_ranges_bist[r] <- quantile(r_bist, probs  = c(.75))
+  low_ranges_bist[r] <- quantile(r_bist, probs  = c(.25))
+  var_bist[r] <- var(r_bist)
+  ranges_unwe[r] <- median(r_unwe)
+  up_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.75))
+  low_ranges_unwe[r] <- quantile(r_unwe, probs  = c(.25))
+  var_unwe[r] <- var(r_unwe)
+  ranges_fcwa[r] <- median(r_fcwa)
+  up_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.75))
+  low_ranges_fcwa[r] <- quantile(r_fcwa, probs  = c(.25))
+  var_fcwa[r] <- var(r_fcwa)
+}
+
+df_values <- data.frame(x = grid, y = grid)
+df_matrix1 <- data.frame(x = rep(grid, time = 3), 
+                         y = c(ranges_bist, ranges_unwe, ranges_fcwa), 
+                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
+                         matrix = 'Point')
+df_matrix2 <- data.frame(x = rep(grid, time = 3), 
+                         y = c(up_ranges_bist, up_ranges_unwe, up_ranges_fcwa), 
+                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
+                         matrix = 'Up')
+df_matrix3 <- data.frame(x = rep(grid, time = 3), 
+                         y = c(low_ranges_bist, low_ranges_unwe, low_ranges_fcwa), 
+                         group = rep(c("Penalized", "Unweighted", "FCWA"), each = g),
+                         matrix = 'Low')
+df_matrix <- rbind(df_matrix1, df_matrix2, df_matrix3)
+df_matrix$line_type <- df_matrix$matrix
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", linewidth = 1) +
+  geom_line(data = df_matrix, 
+            aes(x = x, y = y, group = interaction(matrix, group), 
+                color = factor(group), linetype = line_type), 
+            linewidth = 1) +
+  scale_color_manual(values = rep(c(third, fourth, col1), 3)) +
+  scale_linetype_manual(values = c("dotted", "solid", "dotted")) +
+  ylim(c(0, 3e5)) + 
+  labs(title = "Ranges estimates - Random path process - Bistochastic matrix",
+       x = "Index",
+       y = "Value",
+       color = "Lambdas") +
+  theme_minimal()
+
+df_matrix <- data.frame(x = rep(grid, time = 2), 
+                        y = c(ranges_bist, ranges_unwe), 
+                        group = rep(c("Penalized", "Unweighted"), each = g),
+                        IQR = c(up_ranges_bist - low_ranges_bist, 
+                                up_ranges_unwe - low_ranges_unwe),
+                        matrix = 'Point')
+
+ggplot() +
+  geom_line(data = df_values, aes(x = x, y = y), color = "black", linewidth = 1) +
+  geom_point(data = df_matrix, 
+             aes(x = x, y = y, group = interaction(matrix, group), 
+                 color = factor(group), size = IQR)) +
+  scale_color_manual(values = rep(c(third, fourth, col1), 3)) +
+  ylim(c(0, 3e5)) + 
+  scale_size_continuous(range = c(1, 5)) + 
+  labs(title = "Ranges estimates - Bistochastic matrix",
+       x = "Index",
+       y = "Value",
+       color = "Estimator",
+       size = "Interquantile range") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 16),
+    axis.title = element_text(size = 16),
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    strip.text = element_text(size = 16)
+  )

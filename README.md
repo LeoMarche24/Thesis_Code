@@ -20,4 +20,6 @@ _Simulations_ : Many simulations performed to assess the quality of the estimato
 _Projections_ : Actual case study. The projections from the 4.5 and 8.5 RCP model are used as a baseline to construct prediction intervals for the water temperature in the Mediterranean sea in 2050 and 2099.
 After evaluating their covariance structure, prediction interval are evaluated.
 
-Many different representation of the results are available, in the folder Projections
+## Projections
+
+In this folder the 3D plots can be found. For the two years of analysis and the two models, the interactive plot are stored as html files.

@@ -92,7 +92,7 @@ has_cycles <- !is_acyclic(g)
 print("The built network has a cycle: ")
 print(has_cycles)
 
-plot_lin_net_soft(lines, df[, 1:2])
+plot_lin_net_soft(lines, df[, 1:2], df[inx, 1:2])
 
 df_real <- data_real[which(data_real$year==2006), 1:5]
 
@@ -257,7 +257,7 @@ for(y in 1:len)
   }
 }
 
-inx <- (1:len)[-c(7,11,14)]
+inx <- (1:len)[-c(7,11)]
 plot(years[inx], rowMeans(res_total)[inx], pch = 16, col = third)
 plot(years[inx], sill[inx], pch = 16, col = third)
 plot(years[inx], range[inx], pch = 16, col = third)
@@ -278,6 +278,11 @@ ggplot(variograms_45_bistochastic, aes(x = factor(Distance), y = Value, group = 
   labs(x = "Distance", y = "Values") +
   theme_minimal()
 
+variograms_45_bistochastic <- 
+  variograms_45_bistochastic[which(!is.na(variograms_45_bistochastic$Distance)),]
+mean_variogram_45_bistochastic <- 
+  mean_variogram_45_bistochastic[which(!is.na(mean_variogram_45_bistochastic$dist)) ,]
+
 ggplot(variograms_45_bistochastic, aes(x = factor(Distance), y = Value)) +
   geom_boxplot(fill = third) +  # Boxplot for variability across distances
   geom_line(data = mean_variogram_45_bistochastic,
@@ -287,10 +292,11 @@ ggplot(variograms_45_bistochastic, aes(x = factor(Distance), y = Value)) +
   ylim(c(0, 2)) +
   theme_minimal() +
   theme(
-    axis.text = element_text(size = 20),
-    axis.title = element_text(size = 20)
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 10)
   )
-plot(0,0, xlim = range(mean_variogram_45_bistochastic$dist), 
+
+plot(0,0, xlim = range(mean_variogram_45_bistochastic$dist[which(!is.na(mean_variogram_45_bistochastic$dist))]), 
      ylim = c(0, 2 * range(mean_variogram_45_bistochastic$squared_diff)[2]))
 lapply(variograms_45_bistochastic_unwe, FUN = function(x) lines(x$dist, x$squared_diff))
 
@@ -431,8 +437,8 @@ ggplot(variograms_45_newmatrix, aes(x = factor(Distance), y = Value)) +
 # The choice is to use the bistochastic model, because of the better shape and the higher
 # sill
 
-res <- fit_variogram(mean_variogram_45_bistochastic, 
-                     spherical_kernel, initials = c(0.5, 2.5e5))
+res <- fit_variogram(mean_variogram_45_bistochastic[-15 ,], 
+                     spherical_kernel, initials = c(0.5, 2e5))
 
 sill45 <- res[1]
 range45 <- res[2]
@@ -544,7 +550,7 @@ for(y in 1:len)
   }
 }
 
-inx <- (1:len)[-c(7,11,14)]
+inx <- (1:len)[-c(7,11)]
 plot(years[inx], rowMeans(res_total)[inx], pch = 16, col = third)
 plot(years[inx], sill[inx], pch = 16, col = third)
 plot(years[inx], range[inx], pch = 16, col = third)
@@ -565,6 +571,11 @@ ggplot(variograms_85_bistochastic, aes(x = factor(Distance), y = Value, group = 
   labs(x = "Distance", y = "Values") +
   theme_minimal()
 
+variograms_85_bistochastic <- 
+  variograms_85_bistochastic[which(!is.na(variograms_85_bistochastic$Distance)) ,]
+mean_variogram_85_bistochastic <- 
+  mean_variogram_85_bistochastic[which(!is.na(mean_variogram_85_bistochastic$dist)),]
+
 ggplot(variograms_85_bistochastic, aes(x = factor(Distance), y = Value)) +
   geom_boxplot(fill = third) +  # Boxplot for variability across distances
   geom_line(data = mean_variogram_85_bistochastic,
@@ -574,10 +585,11 @@ ggplot(variograms_85_bistochastic, aes(x = factor(Distance), y = Value)) +
   ylim(c(0, 2)) +
   theme_minimal() +
   theme(
-    axis.text = element_text(size = 20),
-    axis.title = element_text(size = 20)
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 10)
   )
-plot(0,0, xlim = range(mean_variogram_85_bistochastic$dist), 
+
+plot(0,0, xlim = range(mean_variogram_85_bistochastic$dist[which(!is.na(mean_variogram_85_bistochastic$dist))]), 
      ylim = c(0, 2 * range(mean_variogram_85_bistochastic$squared_diff)[2]))
 lapply(variograms_85_bistochastic_unwe, FUN = function(x) lines(x$dist, x$squared_diff))
 
@@ -717,7 +729,7 @@ ggplot(variograms_85_newmatrix, aes(x = factor(Distance), y = Value)) +
 # The choice is to use the bistochastic model, because of the better shape and the higher
 # sill
 
-res <- fit_variogram(mean_variogram_85_bistochastic, 
+res <- fit_variogram(mean_variogram_85_bistochastic[-15 ,], 
                      spherical_kernel, initials = c(0.5, 2.5e5))
 
 sill85 <- res[1]
@@ -1059,7 +1071,7 @@ plot_ly() %>%
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),
                       camera = list(eye = list(x=-2,y=-2,z=1)))
-         ,title = "Temperature - North Tyrrhenian - year 2050 - RCP 4.5"
+         # ,title = "Temperature - North Tyrrhenian - year 2050 - RCP 4.5"
   )
 
 df$Probability <- NA
@@ -1224,7 +1236,7 @@ plot_ly() %>%
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),
                       camera = list(eye = list(x=-2,y=-2,z=1)))
-         ,title = "Temperature - North Tyrrhenian - year 2050 - RCP 8.5"
+         # ,title = "Temperature - North Tyrrhenian - year 2050 - RCP 8.5"
          )
 
 df$Probability <- NA
@@ -1390,7 +1402,7 @@ plot_ly() %>%
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),
                         camera = list(eye = list(x=-2,y=-2,z=1)))
-         ,title = "Temperature - North Tyrrhenian - year 2099 - RCP 4.5"
+         # ,title = "Temperature - North Tyrrhenian - year 2099 - RCP 4.5"
          )
 
 df$Probability <- NA
@@ -1554,7 +1566,7 @@ plot_ly() %>%
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),  
          camera = list(eye = list(x=-2,y=-2,z=1)))
-         ,title = "Temperature - North Tyrrhenian - year 2099 - RCP 4.5"
+         # ,title = "Temperature - North Tyrrhenian - year 2099 - RCP 4.5"
   )
 
 df$Probability <- NA

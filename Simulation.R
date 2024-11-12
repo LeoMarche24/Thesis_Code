@@ -217,7 +217,7 @@ lines(variogram$dist, variogram$squared_diff, col = fourth, lwd = 3)
 sill <- 15
 range <- 1e5
 cov <- build_covariances(sill, range, NewMatrix, fun = linear_covariance)
-simulation <- create_process_covariance(2405, cov)
+simulation <- create_process_covariance(18, cov)
 df$Simulation <- NA
 df$Simulation[inx] <- simulation
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
@@ -277,7 +277,7 @@ lines(variogram$dist, variogram$squared_diff, col = fourth, lwd = 3)
 sill <- 15
 range <- 2e5
 cov <- build_covariances(sill, range, bistochastic, fun = spherical_covariance)
-simulation <- create_process_covariance(2405, cov)
+simulation <- create_process_covariance(18, cov)
 df$Simulation <- NA
 df$Simulation[inx] <- simulation
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,], 
@@ -301,7 +301,7 @@ ggplot() +
   theme_minimal() +
   labs(title = "Variogram")
 
-grid <- seq(0.01, 1, length = 5)
+grid <- seq(0.05, 1, length = 5)
 g <- length(grid)
 variogram_lambda <- lapply(grid, FUN = function(x) 
   evaluate_variogram_penalization(simulation, bistochastic, 15, lambda = x))
@@ -813,7 +813,7 @@ ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$temperature)) ,],
 B <- length(bistochastic)
 K <- 500
 sill <- 15
-range <- 2e5
+range <- 1.5e5
 initial_params <- c(sill, range)
 cov <- build_covariances(sill, range, bistochastic, fun = spherical_covariance)
 errors_bist_unwe <- matrix(0, nrow = K, ncol = B)

@@ -494,6 +494,7 @@ evaluate_variogram_penalization_best_lambda <- function(ma, paths, l,
   {
     if(!is.na(gamma_hat[k]))
     {
+      lam <- 0
       if (gamma_hat[k] <= fuv)
       {
         lam <- (weights[k] * (fuv - gamma_hat[k])/(fuv)) - (weights[k]^2)

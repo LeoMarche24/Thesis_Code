@@ -377,7 +377,7 @@ plot_one_point <- function(coord_sub, data)
       color = col2, linewidth = 1) +
     geom_segment(
       data = data[1 ,],
-      aes(x = lon, y = lat, xend = lon + east*2, yend = lat + nord*2),
+      aes(x = lon, y = lat, xend = lon + east*3, yend = lat + nord*2),
       arrow = arrow(length = unit(.3, "inches"), type = "closed"),
       color = col1, linewidth = 1) +
     labs(x = "Longitude", y = "Latitude") +
@@ -430,7 +430,7 @@ plot_lin_net_soft <- function(lines, coord_sub, coord_highlight)
       data = arrow_data,
       aes(x = x0, y = y0, xend = x1, yend = y1),
       arrow = arrow(length = unit(0.05, "inches"), type = "closed"),
-      color = col2, linewidth = .7
+      color = col2, linewidth = .5
     ) +
     labs(x = "Longitude", y = "Latitude") +
     theme_minimal() +
@@ -440,7 +440,7 @@ plot_lin_net_soft <- function(lines, coord_sub, coord_highlight)
     )
 }
 
-\##########################################
+##########################################
 #### CREATION OF THE DISTANCES OBJECT ####
 ##########################################
 

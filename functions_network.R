@@ -475,7 +475,6 @@ initialize <- function(dist, prob)
 update <- function(p, dist, prob) 
 {
   list_update <- NULL
-  print(p$Id)
   if (length(nrow(p$update)))
   {
     for (row in 1:nrow(p$update))

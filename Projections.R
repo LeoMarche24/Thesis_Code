@@ -69,6 +69,24 @@ ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$value)), ],
     legend.title = element_text(size = 20) 
   )
 
+df <- data[which(data$year==2050 & data$RCP == 'rcp85'), 1:5]
+
+ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$value)), ], 
+       aes(x = lon, y = lat, fill = value)) + 
+  geom_raster() + 
+  scale_fill_gradient(low = col2, high = col1, 
+                      limits = color_limits, name = "Temperature") +
+  labs(fill = "Temperature") +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20) 
+  )
+
 ggplot(df[which(!is.na(df$east) & !is.na(df$nord) & !is.na(df$value)) ,], 
        aes(x = lon, y = lat, fill=value)) +
   geom_raster() + 
@@ -293,7 +311,7 @@ ggplot(variograms_45_bistochastic, aes(x = factor(Distance), y = Value)) +
   theme_minimal() +
   theme(
     axis.text = element_text(size = 10),
-    axis.title = element_text(size = 10)
+    axis.title = element_text(size = 20)
   )
 
 plot(0,0, xlim = range(mean_variogram_45_bistochastic$dist[which(!is.na(mean_variogram_45_bistochastic$dist))]), 
@@ -586,7 +604,7 @@ ggplot(variograms_85_bistochastic, aes(x = factor(Distance), y = Value)) +
   theme_minimal() +
   theme(
     axis.text = element_text(size = 10),
-    axis.title = element_text(size = 10)
+    axis.title = element_text(size = 20)
   )
 
 plot(0,0, xlim = range(mean_variogram_85_bistochastic$dist[which(!is.na(mean_variogram_85_bistochastic$dist))]), 
@@ -1055,7 +1073,7 @@ plot_ly() %>%
               colorscale = custom_colorscale,
               cmin = 22, cmax = 32,  # Set z limits for scaling
               opacity = 0.7, name = 'Upper Bound', 
-              showlegend = FALSE, showscale = TRUE) %>%
+              showlegend = FALSE, showscale = FALSE) %>%
   add_surface(z = lower_matrix, x = lon_unique, y = lat_unique, 
               colorscale = custom_colorscale,
               cmin = 22, cmax = 32,  # Set z limits for scaling
@@ -1071,13 +1089,32 @@ plot_ly() %>%
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),
                       camera = list(eye = list(x=-2,y=-2,z=1)))
-         # ,title = "Temperature - North Tyrrhenian - year 2050 - RCP 4.5"
+         ,title = "Temperature - North Tyrrhenian - year 2050 - RCP 4.5"
   )
 
 df$Probability <- NA
 df$Probability[inx] <- apply(simulation, MARGIN = 2, function(x) sum(x>27)/length(x))
 ggplot(df[inx ,], 
        aes(x=lon, y=lat, fill=Probability)) + 
+  geom_raster() + 
+  xlab("Longitude")+
+  ylab("Latitude")+
+  scale_fill_gradient(low = col2, high = col1) +
+  # ggtitle("Year 2050 - RCP 4.5") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 20),
+    axis.title = element_text(size = 20),
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 20),
+    strip.text = element_text(size = 20)
+    # ,plot.title = element_text(size = 20)
+  )
+
+df$Simulation <- NA
+df$Simulation[inx] <- simulation[24 ,]
+ggplot(df[inx ,], 
+       aes(x=lon, y=lat, fill=Simulation)) + 
   geom_raster() + 
   xlab("Longitude")+
   ylab("Latitude")+
@@ -1220,7 +1257,7 @@ plot_ly() %>%
               colorscale = custom_colorscale,
               cmin = 22, cmax = 32,  # Set z limits for scaling
               opacity = 0.7, name = 'Upper Bound', 
-              showlegend = FALSE, showscale = TRUE) %>%
+              showlegend = FALSE, showscale = FALSE) %>%
   add_surface(z = lower_matrix, x = lon_unique, y = lat_unique, 
               colorscale = custom_colorscale,
               cmin = 22, cmax = 32,  # Set z limits for scaling
@@ -1236,7 +1273,7 @@ plot_ly() %>%
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),
                       camera = list(eye = list(x=-2,y=-2,z=1)))
-         # ,title = "Temperature - North Tyrrhenian - year 2050 - RCP 8.5"
+         ,title = "Temperature - North Tyrrhenian - year 2050 - RCP 8.5"
          )
 
 df$Probability <- NA
@@ -1247,6 +1284,7 @@ ggplot(df[inx ,],
   xlab("Longitude")+
   ylab("Latitude")+
   scale_fill_gradient(low = col2, high = col1) +
+  # ggtitle("Year 2050 - RCP 8.5") +
   theme_minimal() +
   theme(
     axis.text = element_text(size = 20),
@@ -1254,6 +1292,7 @@ ggplot(df[inx ,],
     legend.text = element_text(size = 20),
     legend.title = element_text(size = 20),
     strip.text = element_text(size = 20)
+    # ,plot.title = element_text(size = 20)
   )
 
 #### Year 2099 ####
@@ -1386,7 +1425,7 @@ plot_ly() %>%
               colorscale = custom_colorscale,
               cmin = 22, cmax = 32,  # Set z limits for scaling
               opacity = 0.7, name = 'Upper Bound', 
-              showlegend = FALSE, showscale = TRUE) %>%
+              showlegend = FALSE, showscale = FALSE) %>%
   add_surface(z = lower_matrix, x = lon_unique, y = lat_unique, 
               colorscale = custom_colorscale,
               cmin = 22, cmax = 32,  # Set z limits for scaling
@@ -1402,7 +1441,7 @@ plot_ly() %>%
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),
                         camera = list(eye = list(x=-2,y=-2,z=1)))
-         # ,title = "Temperature - North Tyrrhenian - year 2099 - RCP 4.5"
+         ,title = "Temperature - North Tyrrhenian - year 2099 - RCP 4.5"
          )
 
 df$Probability <- NA
@@ -1413,6 +1452,7 @@ ggplot(df[inx ,],
   xlab("Longitude")+
   ylab("Latitude")+
   scale_fill_gradient(low = col2, high = col1)+
+  # ggtitle("Year 2099 - RCP 4.5") +
   theme_minimal() + 
   theme(
     axis.text = element_text(size = 20),
@@ -1420,6 +1460,7 @@ ggplot(df[inx ,],
     legend.text = element_text(size = 20),
     legend.title = element_text(size = 20),
     strip.text = element_text(size = 20)
+    # ,plot.title = element_text(size = 20)
   )
 
 #### RCP 8.5 ####
@@ -1550,7 +1591,7 @@ plot_ly() %>%
               colorscale = custom_colorscale,
               cmin = 22, cmax = 32,  # Set z limits for scaling
               opacity = 0.7, name = 'Upper Bound', 
-              showlegend = FALSE, showscale = TRUE) %>%
+              showlegend = FALSE, showscale = FALSE) %>%
   add_surface(z = lower_matrix, x = lon_unique, y = lat_unique, 
               colorscale = custom_colorscale,
               cmin = 22, cmax = 32,  # Set z limits for scaling
@@ -1566,7 +1607,7 @@ plot_ly() %>%
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Temperature', range = c(22, 32)),  
          camera = list(eye = list(x=-2,y=-2,z=1)))
-         # ,title = "Temperature - North Tyrrhenian - year 2099 - RCP 4.5"
+         ,title = "Temperature - North Tyrrhenian - year 2099 - RCP 8.5"
   )
 
 df$Probability <- NA
@@ -1577,6 +1618,7 @@ ggplot(df[inx ,],
   xlab("Longitude")+
   ylab("Latitude")+
   scale_fill_gradient(low = col2, high = col1) +
+  # ggtitle("Year 2099 - RCP 8.5") +
   theme_minimal() + 
   theme(
     axis.text = element_text(size = 20),
@@ -1584,5 +1626,6 @@ ggplot(df[inx ,],
     legend.text = element_text(size = 20),
     legend.title = element_text(size = 20),
     strip.text = element_text(size = 20)
+    # ,plot.title = element_text(size = 20)
   )
 

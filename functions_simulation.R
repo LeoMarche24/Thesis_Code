@@ -89,7 +89,7 @@ build_covariances <- function(sill, range, paths, paths2 = NULL, fun)
           sums_2 <- sums_2 + mat[k,2]*fun(c(sill, range), mat[k,1])
         }
       }
-      covs1[i,j] <- covs1[j,i] <- sums_1 + sums_2
+      covs1[i,j] <- covs1[j,i] <- max(sums_1,sums_2)
     }
   }
   

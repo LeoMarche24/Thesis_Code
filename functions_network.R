@@ -452,20 +452,20 @@ initialize <- function(dist, prob)
   for (i in 1:B)
   {
     temp <- vector("list", length = B)
-    distances[[i]] <- list(lengths = temp, update = NULL, Id = i)
+    distances[[i]] <- list(lengths = temp, update = NULL, Id = i, visited = temp)
   }
   
   for (i in 1:B)
   {
     for (j in 1:B)
     {
-      distances[[i]]$visited[[j]] <- j
       if ((!is.na(dist[j, i])) & (!is.na(prob[j,i])))
       {
         distances[[i]]$lengths[[j]] <- 
           rbind(distances[[i]]$lengths[[j]], c(dist[j, i], prob[j, i]))
         distances[[i]]$update <- rbind(distances[[i]]$update, 
                                        cbind(j, nrow(distances[[i]]$lengths[[j]])))
+        distances[[i]]$visited[[j]] <- list(c(j,i))
       }
     }
   }
@@ -475,6 +475,7 @@ initialize <- function(dist, prob)
 update <- function(p, dist, prob) 
 {
   list_update <- NULL
+  print(p$Id)
   if (length(nrow(p$update)))
   {
     for (row in 1:nrow(p$update))
@@ -488,14 +489,14 @@ update <- function(p, dist, prob)
         {
           new_dist <- dist[inx[k],i]+p$lengths[[i]][j, 1]
           new_PI <- p$lengths[[i]][j, 2]*prob[inx[k],i]
-          if (new_PI > 1e-7)
+          if (new_PI > 1e-7 & !(inx[k] %in% p$visited[[i]][[j]]) & (inx[k] != p$Id))
           {
-            if (is.null(p$lengths[[inx[k]]]))
-            {
-              p$min[inx[k]] <- new_dist
-            }
             p$lengths[[inx[k]]] <- rbind(p$lengths[[inx[k]]], 
                                          c(new_dist, new_PI))
+            l <- length(p$visited[[inx[k]]])
+            if(is.null(l))
+              l <- 0
+            p$visited[[inx[k]]][[l+1]] <- c(p$visited[[i]][[j]], inx[k])
             list_update <- rbind(list_update, cbind(inx[k], nrow(p$lengths[[inx[k]]])))
           }
         }
